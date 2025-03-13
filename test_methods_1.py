@@ -2,10 +2,11 @@ import graph as g
 import node as n
 
 def test_graph():
+    # LLM prompt: load the file parse it line by line. each line is space-separated.
     # Load Graph500.txt file
     graph_file = "Graph500.txt"
     values = []
-
+    
     with open(graph_file, 'r') as file:
             for line in file:
                 # Split each line by space and convert to integers
@@ -17,7 +18,7 @@ def test_graph():
     min_length_item = min(values, key=len)
     assert len(min_length_item) == 3 # this is a node with no edges (no neighbors).
     
-    #create a dictionary to store the nodes in the list. The key is the node id and the value is the node object
+    #LLM Prompt: Create a dictionary to store the nodes in the list. The key is the node id and the value is the node object
     nodes = {}
     for i in values:
         nodes[i[0]] = i
@@ -51,4 +52,4 @@ def test_graph():
             assert node_id in neighbor.neighbors
     
 
-test_graph()
+#test_graph()
