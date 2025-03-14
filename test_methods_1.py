@@ -52,4 +52,28 @@ def test_graph():
             assert node_id in neighbor.neighbors
     
 
-#test_graph()
+def test_cutsize():
+    """
+1 (0.1,0.1) 2 2 3
+2 (0.3,0.6) 2 1 3
+3 (0.5,0.3) 3 1 2 5 
+4 (0.7,0.9) 1 5
+5 (0.9,0.1) 3 3 6 4
+6 (1.1,0.3) 1 5
+    """
+    #This is a simple graph with 6 nodes. The smallest cut is {1, 2, 3} and {4, 5, 6}.
+    #Cut is 1. 
+    graph_file = "test_graph1.txt"
+    graph = g.Graph(graph_file)
+    
+    #We cannot use initilize solution method, because it is random. 
+    #We need to set the solution manually.
+    graph.solution = {1: 0, 2: 0, 3: 0, 4: 1, 5: 1, 6: 1}
+    cut_size = graph.get_cut_size()
+    assert cut_size == 1
+    
+    #Test with another manual solution. Swap 3 with 5. The cut size is 5.
+    graph.solution = {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1}
+    cut_size = graph.get_cut_size()
+    assert cut_size == 5
+    
