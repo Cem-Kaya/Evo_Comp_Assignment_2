@@ -1,7 +1,7 @@
 import graph as g
 import node as n
 
-def test_graph():
+def test_load_graph():
     # LLM prompt: load the file parse it line by line. each line is space-separated.
     # Load Graph500.txt file
     graph_file = "Graph500.txt"
@@ -76,4 +76,46 @@ def test_cutsize():
     graph.solution = {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1}
     cut_size = graph.get_cut_size()
     assert cut_size == 5
+
+def test_graph_operations():
+    """This test case is for the graph operations. 
+    It will test the primary node operations like moving a node to the other partition and calculating the gain of a node.
+    It is also a mini-simulation of the FM algorithm.
+    """
+    graph_file = "test_graph1.txt"
+    graph = g.Graph(graph_file)
     
+    #Test with another manual solution. Swap 3 with 5. The cut size is 5.
+    #Start with a bad solution.
+    graph.solution = {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1}
+    cut_size = graph.get_cut_size()
+    assert cut_size == 5
+    
+    #If we move the node 3 to the other partition,
+    #the cut size will be decreased by 3, so the gain must be 3.
+    node3 = graph.nodes[3]  
+    gain = graph.calculate_gain_for_node(3)  
+    assert gain == 3
+    assert node3.last_calculated_gain == gain #The gain is stored in the node object for easy access.
+    
+    #Move the node to the other partition
+    graph.move_node_to_other_solution(3)
+    assert graph.solution[3] == 0
+    cut_size = graph.get_cut_size()
+    #cut size is decreased by 3, so cut size will be 2 (because 5 is still there), 
+    #the solution is unbalanced at this stage.
+    assert cut_size == 2 
+    
+    #get the gain of 5.
+    node5 = graph.nodes[5]
+    gain = graph.calculate_gain_for_node(5)
+    assert gain == 1 # Gain will be 1 because we moved 3 to the other partition.
+    assert node5.last_calculated_gain == gain
+    
+    #move the node 5 to the other partition
+    graph.move_node_to_other_solution(5)
+    cut_size = graph.get_cut_size()
+    #cut size is decreased by 1.
+    #so cut size will be 1 and the solution is balanced. This is the optimal solution.
+    #This is the optimal convergence behavior for this trivial graph.
+    assert cut_size == 1

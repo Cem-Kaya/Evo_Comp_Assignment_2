@@ -5,12 +5,22 @@ class Node:
         self.id = node_id
         self.neighbors = []        
         self.x = x_in
-        self.y = y_in 
+        self.y = y_in         
+        self.locked = False
+        self.last_calculated_gain = -1
         
+    def lock(self):
+        self.locked = True
+        
+    def free(self):
+        self.locked = False
     
     def add_neighbor(self, neighbor_id: int):
         self.neighbors.append(neighbor_id)
-   
+    
+    def get_degree(self):
+        return len(self.neighbors)
+        
     def __str__(self):
         return f"Node({self.id}, neighbors={self.neighbors})"
     

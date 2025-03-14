@@ -51,9 +51,12 @@ class Graph:
             for neighbor_id in node.neighbors:
                 if self.solution[node.id] != self.solution[neighbor_id]:
                     cut_size += 1
+                    
+        self.cut_size = cut_size #update the cut size. This is useful for debugging and ToString method.
         return cut_size // 2  # Each edge counted twice
 
     def set_random_solution(self, seed=None):
+        self.solution = {} #Clear the current solution
         #Generates a random balanced partitioning of nodes
         node_ids = list(self.nodes.keys())  
         
@@ -71,17 +74,25 @@ class Graph:
             
         assert len(self.solution)% 2 == 0
         self.is_balanced = True
-        self.cut_size = self.get_cut_size()
-         
-    def get_cuts_per_node(self, node_id):
-        # given a node id returns the number of edges that cross partitions
+        self.get_cut_size() #This will update the cut size property.
+        
+    def move_node_to_other_solution(self, node_id:int):
+        #switch the partition of the node
+        self.solution[node_id] = 1 - self.solution[node_id]
+        
+    def calculate_gain_for_node(self, node_id:int):
+        #Calculate the gain of the node. If a neighbor is in the same partition, gain is decreased by 1,
+        #Because when we move this node to the other partition, the cut size will be increased by 1.
+        gain = 0
         node = self.nodes[node_id]
-        cuts = 0
         for neighbor_id in node.neighbors:
             if self.solution[node_id] != self.solution[neighbor_id]:
-                cuts += 1
+                gain += 1
+            else:
+                gain -= 1
                 
-        return cuts
+        node.last_calculated_gain = gain
+        return gain
             
     def __str__(self):
         string_ver = ""
