@@ -354,7 +354,6 @@ def test_fm_run():
     #Run the FM algorithm. It will run until the cut size is not improved.
     res = fm.run_fm()
     assert res == 1 #The optimal solution is found. The cut size is 1.
-    pass
 
 def _check_bucket_contents(fm:FM, expected_left:list, expected_right:list, max:int):
     #Check left.

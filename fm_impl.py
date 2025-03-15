@@ -152,6 +152,6 @@ class FM:
                     self.__move_node(node_to_revert)
                     #print(f"Reverted the move. Moved node {node_id} from partition 2 to 1.")
                     
-        return self.graph.cut_size
+        return self.cut_size
         
         
