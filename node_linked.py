@@ -29,7 +29,7 @@ class LinkedNode(Node):
             prev_node.next = self
     
     #Remove method: remove the node from the linked list
-    def remove(self):
+    def remove(self, locked:bool = False) -> 'LinkedNode':
         """Remove the node from the linked list and return the next node
         Returns:
             LinkedNode: The next node in the linked list before removal.
@@ -47,6 +47,9 @@ class LinkedNode(Node):
             
         self.next = None
         self.prev = None        
+        
+        if locked:
+            self.lock()
         return ret
     
     #insert_after method: insert a new node after the current node
@@ -56,7 +59,24 @@ class LinkedNode(Node):
         new_node.next = self.next
         if self.next is not None:
             self.next.prev = new_node
-        self.next = new_node    
+        self.next = new_node   
+        
+    def to_list(self) -> list['LinkedNode']:
+        """Convert the linked list to a list, starting from the first node and moving to the end
+        Returns:
+            list[LinkedNode]: List of nodes in order from start to end
+        """
+        result = []
+        # First find the start of the list
+        current = self
+        while current.prev is not None:
+            current = current.prev
+        
+        # Now traverse from start to end
+        while current is not None:
+            result.append(current)
+            current = current.next
+        return result
     
     def __str__(self):
         # Extend the parent's string representation to include linked list info

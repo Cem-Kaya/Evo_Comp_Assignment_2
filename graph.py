@@ -129,7 +129,9 @@ class Graph:
                 cut += 1
             else:
                 gain -= 1
+                
         node.last_calculated_gain = gain
+        node.last_calculated_cut = cut
         return gain,cut
             
     def __str__(self):

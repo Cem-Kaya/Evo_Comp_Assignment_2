@@ -140,23 +140,24 @@ def test_graph_operations2():
     #the cut size will be decreased by 3, so the gain must be 3.
     node3 = graph.nodes[3]  
     gain = graph.calculate_gain(node3)
-    assert gain == 3
-    assert node3.last_calculated_gain == gain #The gain is stored in the node object for easy access.
+    assert gain == (3,3) #gain,cut. Note that the cut is 3, because the node 3 is connected to 1,2,5 in the other partition.
+    assert node3.last_calculated_gain == gain[0] #The gain is stored in the node object for easy access.
     
     #Move back the gain must be -previous gain, because we made a better solution by moving the node 3.
     node3.partition = 1 - node3.partition
     gain = graph.calculate_gain(node3)
-    assert gain == -3
-    assert node3.last_calculated_gain == gain #The gain is stored in the node object for easy access.
+    #Note that the cut is 0, because the node 3 is not connected to any node in the other partition, but the solution is unbalanced.
+    assert gain == (-3, 0) 
+    assert node3.last_calculated_gain == gain[0] #The gain is stored in the node object for easy access.
     
-    cut_size = graph.get_cut_size_node_traversal_temp()
+    cut_size = graph.get_cut_size_node_traversal_temp() 
     assert cut_size == 2
     
     #get the gain of 5.
     node5 = graph.nodes[5]
     gain = graph.calculate_gain(node5)
-    assert gain == 1 # Gain will be 1 because we moved 3 to the other partition.
-    assert node5.last_calculated_gain == gain
+    assert gain == (1,2) # Gain will be 1 because we moved 3 to the other partition.
+    assert node5.last_calculated_gain == gain[0]
     
     #move the node 5 to the other partition
     node5.partition = 1 - node5.partition
@@ -164,6 +165,40 @@ def test_graph_operations2():
     #cut size is decreased by 1.
     assert cut_size == 1
 
+def test_linked_node():
+    node1 = LinkedNode(1)
+    node2 = LinkedNode(2)
+    node3 = LinkedNode(3)
+    
+    node1.set_next(node2)
+    assert node1.next == node2
+    assert node2.prev == node1
+    
+    node2.set_next(node3)
+    assert node2.next == node3
+    assert node3.prev == node2
+    
+    #test remove
+    current = node2.remove()
+    assert current == node1
+    assert node1.prev == None
+    assert node1.next == node3
+    assert node3.prev == node1
+    assert node3.next == None
+    assert node2.next == None
+    assert node2.prev == None
+    
+    #test remove from the end
+    current = node3.remove()
+    assert current == node1
+    assert node1.next == None
+    assert node3.prev == None
+    assert node3.next == None
+    
+    #test remove node1
+    current = node1.remove()
+    assert current == None
+    
 def test_fm_single_pass():
     #load the test graph
     graph_file = "test_graph1.txt"
@@ -228,26 +263,24 @@ def test_fm_single_pass():
     for gain in range(-max, 0):
         assert fm.get_node_from_right_bucket(gain) == None
     
-    #Run the single pass. The node 5 will be moved to the right partition. 
+    ####### RUN SINGLE PASS. The node 5 will be moved to the right partition. 
     #The solution is not balanced yet. Expected cut size is 2.
-    run = fm.run_pass()
+    run = fm.run_single_pass()
     #The best gain is at node5 in the left bucket. The gain is 3.
     best_node = graph.nodes[5]
     #The cut size is 5, so the cut size will be 2.
-    assert run[0] == 5
-    #assert run[1] == 2 #THIS IS BUG!!
+    assert run[0] == 5 # old cut size
+    assert run[1] == 2 # new cut size
     assert run[2] == best_node.id
     
     #We need to check the bucket distribution again.
     #CHECK LEFT BUCKET, it is only node 1 and 2, both have gain 0 (unchanged).
     node = fm.get_node_from_left_bucket(0)
     assert node == graph.nodes[1]
+    assert node.prev == None
     node = node.next
     assert node == graph.nodes[2]
-    #And all gains between -max and +max must be none, except gain 0.
-    for gain in range(-max, +max):
-        if gain != 0:
-            assert fm.get_node_from_left_bucket(gain) == None
+    assert node.next == None       
     
     #Check the right bucket. 3,4,5,6 are in the right bucket.
     #The nodes 4 and 6 have now gain -1 (because 5 is moved to the right partition).
@@ -262,52 +295,59 @@ def test_fm_single_pass():
     #The node 5 is moved to the right partition, so its gain must be -3, BUT it is removed from the bucket, so not there.
     node = fm.get_node_from_right_bucket(-3)
     assert node == None
-    #We have only gains 1, -1,in the right bucket.
-    for gain in range(-max, +max):
-        if gain == 1 or gain == -1:            
-            continue #nodes 3,4,6
-        assert fm.get_node_from_right_bucket(gain) == None
+    
+    #Ensure the bucket distribution.     
+    expected_bucket_left = [1,2]    
+    expected_bucket_right = [6,4,3]
+    _check_bucket_contents(fm, expected_bucket_left, expected_bucket_right, max)
             
     #Run the pass again. This time the node 3 will be moved to the left partition.
-    run = fm.run_pass()
+    run = fm.run_single_pass()
     #The best gain is at node3 in the right bucket. The gain is 2.
     best_node = graph.nodes[3]
     #The cut size is 2, so the cut size will be 1.
-    assert run[0] == 2
-    #assert run[1] == 1 #THIS IS BUG!!
+    assert run[0] == 2 # old cut size
+    assert run[1] == 1 # new cut size
     assert run[2] == best_node.id
     
+    #We need to check the bucket distribution again.
+    #CHECK LEFT BUCKET, it is only node 1 and 2, they both have the gain -2 now, because 3 is moved to this partition.
+    node = fm.get_node_from_left_bucket(-2)
+    assert node == graph.nodes[1]
+    assert node.prev == None
+    node = node.next
+    assert node == graph.nodes[2]
+    assert node.next == None
     
-def test_linked_node():
-    node1 = LinkedNode(1)
-    node2 = LinkedNode(2)
-    node3 = LinkedNode(3)
+    #Check the right bucket. 4 and 6 now, since the 3 is removed from the bucket.
+    node = fm.get_node_from_right_bucket(-1)
+    assert node == graph.nodes[6]
+    assert node.prev == None
     
-    node1.set_next(node2)
-    assert node1.next == node2
-    assert node2.prev == node1
+    node = node.next
+    assert node == graph.nodes[4]
+    assert node.next == None
     
-    node2.set_next(node3)
-    assert node2.next == node3
-    assert node3.prev == node2
+    #Ensure the bucket distributions.     
+    expected_bucket_left = [1,2]    
+    expected_bucket_right = [6,4]
+    _check_bucket_contents(fm, expected_bucket_left, expected_bucket_right, max)
+
+def _check_bucket_contents(fm:FM, expected_left:list, expected_right:list, max:int):
+    #Check left.
+    bucket = []
+    for gain in range(-max, +max):
+        item = fm.get_node_from_left_bucket(gain)
+        if item is not None:
+            for node in item.to_list():
+                bucket.append(node.id)
+    assert bucket == expected_left
     
-    #test remove
-    current = node2.remove()
-    assert current == node1
-    assert node1.prev == None
-    assert node1.next == node3
-    assert node3.prev == node1
-    assert node3.next == None
-    assert node2.next == None
-    assert node2.prev == None
-    
-    #test remove from the end
-    current = node3.remove()
-    assert current == node1
-    assert node1.next == None
-    assert node3.prev == None
-    assert node3.next == None
-    
-    #test remove node1
-    current = node1.remove()
-    assert current == None
+    #Check right.
+    bucket = []
+    for gain in range(-max, +max):
+        item = fm.get_node_from_right_bucket(gain)
+        if item is not None:
+            for node in item.to_list():
+                bucket.append(node.id)
+    assert bucket == expected_right   

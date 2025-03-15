@@ -8,6 +8,7 @@ class Node:
         self.y = y_in         
         self.locked = False
         self.last_calculated_gain = -1
+        self.last_calculated_cut = -1
         self.partition = -1
         
     def lock(self):

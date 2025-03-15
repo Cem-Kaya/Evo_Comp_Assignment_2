@@ -1,4 +1,6 @@
 from graph import Graph
+from node_linked import LinkedNode
+import time
 
 class FM:
     def __init__(self, graph:Graph):
@@ -7,6 +9,8 @@ class FM:
         self.size_part_1 = 0
         self.size_part_2 = 0
         self.cut_size = 0     
+        self.runs = 0
+        self.run_durations = []
         self.__initialize_buckets()        
     
     def __initialize_buckets(self):                        
@@ -58,10 +62,7 @@ class FM:
             raise ValueError(f"Invalid gain value. The gain value must be between -{self.max_gain} and max_gain {self.max_gain}.")
         return self.gains_right[gain + self.max_gain]
     
-    def run_pass(self):
-        #Buffer the cut size before the pass.
-        cut_size_before = self.cut_size
-        
+    def run_single_pass(self):        
         current_gain_list = self.gains_left#TODO: if the sizes are equal, it must be random pick.
         if self.size_part_1 < self.size_part_2:
             # If the left partition is smaller, pick one from the right partition.
@@ -75,21 +76,38 @@ class FM:
             if node == None:
                 continue            
             #Found the node with the highest gain.
+            #assert gain == node.last_calculated_gain + max, f"Invalid gain value. Expected: {node.last_calculated_gain + max}, Actual: {gain}"
             break
         
+        if node == None:
+            #There is no node to move.
+            return None
+        
         #Remove the node from the linked list, and assign the next node to the current gain index.
-        current_gain_list[gain] = node.remove()
+        
+        gain = current_gain_list.index(node)
+        #Remove the node from the linked list, and assign the next node to the current gain index.
+        #Lock the node to prevent it from being moved again.
+        current_gain_list[gain] = node.remove(locked=True)
         #Update the size tracker.
         if current_gain_list == self.gains_left:
             self.size_part_1 -= 1
         else:
             self.size_part_2 -= 1
+            
+        return self.__move_node(node)
+        
+    def __move_node(self, node:LinkedNode):
+        #Buffer the cut size before the pass.
+        cut_size_before = self.cut_size
+        max = self.max_gain    
         
         #Move the node to the other partition.
         node.partition = 1 - node.partition
-        #Recalculate the gain of the node and update the cut size.
+        
+        #Recalculate the gain of the node        
         gain,cut = self.graph.calculate_gain(node)
-        self.cut_size -= cut #TODO: this is BUG!!!
+        #self.cut_size -= cut #TODO: this is BUG!!!
         parts = [self.gains_left, self.gains_right]
         
         #Update the gain buckets for the neighbors of the node.
@@ -97,10 +115,10 @@ class FM:
             neighbor = self.graph.nodes[neighbor_id]
             n_old = neighbor.last_calculated_gain
             n_new, cut = self.graph.calculate_gain(neighbor)
-            self.cut_size -= cut#TODO: this is BUG!!!
+            #self.cut_size -= cut#TODO: this is BUG!!!
             
-            #Check if the gain of the neighbor is changed.
-            if n_old != neighbor.last_calculated_gain:
+            #Check if the gain of the neighbor is changed and it is not locked.
+            if n_old != n_new and not neighbor.locked:
                 #The gain of the neighbor is changed, update the gain buckets.
                 bucket = parts[neighbor.partition]
                 #remove the neighbor from the old gain bucket.
@@ -110,12 +128,30 @@ class FM:
                 if bucket[n_new + max] is None:
                     bucket[n_new + max] = neighbor
                 else:
-                    bucket[n_new + max].insert_after(neighbor)
-                    
-        #NOTE: if the cut size is not improved, we can revert the move.
-        #We can do this by moving the node to the other partition again.
-        #We need to update the bucket lists and the cut size back, but we won't put the current node
-        #to the gain bucket again. we can return the old cut size, new_cut_size and the current node.        
-        return cut_size_before, self.cut_size, node.id
+                    bucket[n_new + max].insert_after(neighbor)                
+        
+        #NOTE: if we can update the cut size as we move the nodes, we can avoid this array scan.
+        self.cut_size = self.graph.get_cut_size_node_traversal_temp()     
+        return cut_size_before, self.cut_size, node.id    
+
+def run_fm(self, graph:Graph):
+    step_result = 0 # just initialize with some value    
+    while step_result is not None:        
+        start_time = time.time()
+        step_result = self.run_single_pass()
+        end_time = time.time()
+        self.run_durations.append(end_time - start_time)
+        #print(f"Time taken for single pass: {end_time - start_time:.6f} seconds")
+        self.runs += 1
+        if step_result is not None:
+            cut_size_before, cut_size_after, node_id = step_result
+            #print(f"Moved node {node_id} from partition 1 to 2. Cut size before: {cut_size_before}, after: {cut_size_after}")
+            if cut_size_before < cut_size_after:
+                #Current cut is worse than before, revert the move.
+                node_to_revert = graph.nodes[node_id]                
+                self.__move_node(node_to_revert)
+                #print(f"Reverted the move. Moved node {node_id} from partition 2 to 1.")
+                
+    return self.graph.cut_size
         
         
