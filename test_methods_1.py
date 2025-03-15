@@ -333,6 +333,29 @@ def test_fm_single_pass():
     expected_bucket_right = [6,4]
     _check_bucket_contents(fm, expected_bucket_left, expected_bucket_right, max)
 
+def test_fm_run():
+    #load the test graph
+    graph_file = "test_graph1.txt"
+    graph = g.Graph(graph_file)
+    
+    #Setup the scenario. Bad solution.
+    custom_solution = {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1}
+    graph.set_solution_explicit(custom_solution)
+    cut_size = graph.get_cut_size_node_traversal_temp()
+    assert cut_size == 5
+    
+    #Create the FM object, it initializes the buckets.
+    fm = FM(graph)
+    assert fm.cut_size == 5
+    assert fm.size_part_1 == 3
+    assert fm.size_part_2 == 3
+    assert fm.max_gain == 3  
+    
+    #Run the FM algorithm. It will run until the cut size is not improved.
+    res = fm.run_fm()
+    assert res == 1 #The optimal solution is found. The cut size is 1.
+    pass
+
 def _check_bucket_contents(fm:FM, expected_left:list, expected_right:list, max:int):
     #Check left.
     bucket = []

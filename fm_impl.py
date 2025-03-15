@@ -134,24 +134,24 @@ class FM:
         self.cut_size = self.graph.get_cut_size_node_traversal_temp()     
         return cut_size_before, self.cut_size, node.id    
 
-def run_fm(self, graph:Graph):
-    step_result = 0 # just initialize with some value    
-    while step_result is not None:        
-        start_time = time.time()
-        step_result = self.run_single_pass()
-        end_time = time.time()
-        self.run_durations.append(end_time - start_time)
-        #print(f"Time taken for single pass: {end_time - start_time:.6f} seconds")
-        self.runs += 1
-        if step_result is not None:
-            cut_size_before, cut_size_after, node_id = step_result
-            #print(f"Moved node {node_id} from partition 1 to 2. Cut size before: {cut_size_before}, after: {cut_size_after}")
-            if cut_size_before < cut_size_after:
-                #Current cut is worse than before, revert the move.
-                node_to_revert = graph.nodes[node_id]                
-                self.__move_node(node_to_revert)
-                #print(f"Reverted the move. Moved node {node_id} from partition 2 to 1.")
-                
-    return self.graph.cut_size
+    def run_fm(self):
+        step_result = 0 # just initialize with some value    
+        while step_result is not None:        
+            start_time = time.time()
+            step_result = self.run_single_pass()
+            end_time = time.time()
+            self.run_durations.append(end_time - start_time)
+            #print(f"Time taken for single pass: {end_time - start_time:.6f} seconds")
+            self.runs += 1
+            if step_result is not None:
+                cut_size_before, cut_size_after, node_id = step_result
+                #print(f"Moved node {node_id} from partition 1 to 2. Cut size before: {cut_size_before}, after: {cut_size_after}")
+                if cut_size_before < cut_size_after:
+                    #Current cut is worse than before, revert the move.
+                    node_to_revert = self.graph.nodes[node_id]                
+                    self.__move_node(node_to_revert)
+                    #print(f"Reverted the move. Moved node {node_id} from partition 2 to 1.")
+                    
+        return self.graph.cut_size
         
         
