@@ -13,19 +13,15 @@ class FM:
     
     def __initialize_buckets(self):                        
         #Find the max gain, we need it to initialize the buckets.
-        self.max_gain = 0
-        cut_size = 0
+        self.max_gain = 0        
         for node_id in self.graph.nodes:
             linked_node = self.graph.nodes[node_id]
-            gain,cut = self.graph.calculate_gain(linked_node)
-            cut_size += cut
-            # if gain > self.max_gain:
-            #     self.max_gain = gain 
+            self.graph.calculate_gain(linked_node)
             if linked_node.get_degree() > self.max_gain:
                 self.max_gain = linked_node.get_degree()
                 
         #Initialize the buckets, assign -1 to denote nothing is in that gain index.
-        self.cut_size = cut_size // 2
+        self.cut_size = self.graph.get_cut_size()
         max = self.max_gain
         
         #range: -max_gain to max_gain and there is 0.
@@ -104,8 +100,7 @@ class FM:
         self.graph.move_node(node.id)
         
         #Recalculate the gain of the node        
-        gain,cut = self.graph.calculate_gain(node)
-        #self.cut_size -= cut #TODO: this is BUG!!!
+        self.graph.calculate_gain(node)        
         parts = [self.gains_left, self.gains_right]
         
         #Update the gain buckets for the neighbors of the node.
@@ -113,7 +108,6 @@ class FM:
             neighbor = self.graph.nodes[neighbor_id]
             n_old = neighbor.last_calculated_gain
             n_new, cut = self.graph.calculate_gain(neighbor)
-            #self.cut_size -= cut#TODO: this is BUG!!!
             
             #Check if the gain of the neighbor is changed and it is not locked.
             if n_old != n_new and not neighbor.locked:
@@ -132,6 +126,7 @@ class FM:
                     bucket[n_new + max].insert_after(neighbor)                
         
         #NOTE: if we can update the cut size as we move the nodes, we can avoid this array scan.
+        #But for now, it is not a problem. We can optimize if we need.
         self.cut_size = self.graph.get_cut_size()     
         return cut_size_before, self.cut_size, node.id, self.graph.is_balanced   
 
