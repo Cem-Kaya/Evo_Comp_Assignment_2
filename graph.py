@@ -1,5 +1,5 @@
 import random
-from node import Node
+from node_linked import LinkedNode
 
 class Graph:
     # a class for the graph
@@ -21,7 +21,7 @@ class Graph:
                 x, y = map(float, parts[1][1:-1].split(","))  # Extract coordinates from (x,y)
 
                 if node_id not in self.nodes:
-                    self.nodes[node_id] = Node(node_id, x, y)
+                    self.nodes[node_id] = LinkedNode(node_id, x, y)
                 else:
                     self.nodes[node_id].x, self.nodes[node_id].y = x, y  # Update 
 
@@ -30,7 +30,7 @@ class Graph:
                     neighbor_id = int(neighbor_id)
 
                     if neighbor_id not in self.nodes:
-                        self.nodes[neighbor_id] = Node(neighbor_id)  # No coordinates available
+                        self.nodes[neighbor_id] = LinkedNode(neighbor_id)  # No coordinates available
 
                     self.nodes[node_id].add_neighbor(neighbor_id)
                     #13.03.2025 MS: The line below duplicates the neighbor array of current node. 
@@ -54,9 +54,22 @@ class Graph:
                     
         self.cut_size = cut_size #update the cut size. This is useful for debugging and ToString method.
         return cut_size // 2  # Each edge counted twice
+    
+    def get_cut_size_node_traversal_temp(self):
+        #Computes the number of edges that cross partitions
+        cut_size = 0
+        for node in self.nodes.values():
+            for neighbor_id in node.neighbors:
+                if node.partition != self.nodes[neighbor_id].partition:
+                    cut_size += 1
+                    
+        self.cut_size = cut_size #update the cut size. This is useful for debugging and ToString method.
+        return cut_size // 2  # Each edge counted twice
 
     def set_random_solution(self, seed=None):
-        self.solution = {} #Clear the current solution
+        #reset the nodes
+        for node in self.nodes.values():
+            node.reset()
         #Generates a random balanced partitioning of nodes
         node_ids = list(self.nodes.keys())  
         
@@ -65,16 +78,27 @@ class Graph:
         random.shuffle(node_ids )   
         
         half_len= len(node_ids) // 2  # Half of the total nodes
-
+        new_solution = {} 
         # Assign half of the nodes to partition 0 and the rest to partition 1
         for i in range(half_len):
-            self.solution[node_ids[i]] = 0
+            new_solution[node_ids[i]] = 0
         for i in range(half_len , len(node_ids)):
-            self.solution[node_ids[i]] = 1
+            new_solution[node_ids[i]] = 1
             
-        assert len(self.solution)% 2 == 0
+        #This will update the partition of the nodes and cut size.
+        self.set_solution_explicit(new_solution) 
+    
+    def set_solution_explicit(self, solution: dict):
+        #Sets the solution explicitly
+        self.solution = solution
+        
+        #Update the partition of the nodes
+        for node_id in self.solution:
+            self.nodes[node_id].partition = self.solution[node_id]
+        
+        assert len(self.solution)% 2 == 0, "The number of nodes must be even."
         self.is_balanced = True
-        self.get_cut_size() #This will update the cut size property.
+        self.get_cut_size() #This will update the cut size property.        
         
     def move_node_to_other_solution(self, node_id:int):
         #switch the partition of the node
@@ -85,6 +109,7 @@ class Graph:
         #Because when we move this node to the other partition, the cut size will be increased by 1.
         gain = 0
         node = self.nodes[node_id]
+        
         for neighbor_id in node.neighbors:
             if self.solution[node_id] != self.solution[neighbor_id]:
                 gain += 1
@@ -93,6 +118,19 @@ class Graph:
                 
         node.last_calculated_gain = gain
         return gain
+    
+    def calculate_gain(self, node: LinkedNode):
+        #Calculate the gain of the node. If a neighbor is in the same partition, gain is decreased by 1,
+        gain = 0
+        cut = 0
+        for neighbor_id in node.neighbors:            
+            if node.partition != self.nodes[neighbor_id].partition:
+                gain += 1
+                cut += 1
+            else:
+                gain -= 1
+        node.last_calculated_gain = gain
+        return gain,cut
             
     def __str__(self):
         string_ver = ""
