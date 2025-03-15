@@ -416,18 +416,14 @@ def test_edge_case_start_optimal():
         assert fm.gains_right[i] == None
     
     #get the first partition from graph
+    expected_partition = [5,4,6]
     partition = graph.get_partition(0)
-    assert len(partition) == 3
-    assert 1 in partition
-    assert 2 in partition
-    assert 3 in partition
+    assert expected_partition == partition
     
     #get the second partition from graph
+    expected_partition = [1,2,3]
     partition = graph.get_partition(1)
-    assert len(partition) == 3
-    assert 4 in partition
-    assert 5 in partition
-    assert 6 in partition
+    assert expected_partition == partition
     
 def test_graph_with_island():
     #see test_scenario_2.png for the graph.
@@ -465,6 +461,33 @@ def test_graph_with_island():
     expected_partition = [5,4,6,7,8]
     partition2 = graph.get_partition(1)
     assert expected_partition == partition2
+    
+def test_fm_run_500():
+    #see test_scenario_2.png for the graph.
+    graph_file = "Graph500.txt"
+    graph = g.Graph(graph_file)
+    solution = {}
+    #Initialize a fixed solution. A random solution is not optimal for testing.
+    #Iterate over the nodes and assign 0 if the node id is even, 1 if the node id is odd.
+    #It is a worse case than random solution or halg-half solution, because it seperates the adjacent nodes,
+    #which tend to be in a cluster.
+    for node_id in graph.nodes:
+        solution[node_id] = node_id % 2
+    graph.set_solution_explicit(solution)
+    cut_size = graph.get_cut_size()
+    assert cut_size == 651
+    
+    fm = FM(graph)
+    res = fm.run_fm()
+    assert res == 70
+    partition1 = graph.get_partition(0)
+    partition2 = graph.get_partition(1)
+    assert len(partition1) == 250
+    assert len(partition2) == 250
+    assert graph.get_cut_size() == 70
+    assert graph.is_balanced == True
+    stats = fm.get_run_statistics()    
+    pass
 
 def _check_bucket_contents(fm:FM, expected_left:list, expected_right:list, max:int):
     #Check left.

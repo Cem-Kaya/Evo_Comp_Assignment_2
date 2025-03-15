@@ -19,8 +19,10 @@ class FM:
             linked_node = self.graph.nodes[node_id]
             gain,cut = self.graph.calculate_gain(linked_node)
             cut_size += cut
-            if gain > self.max_gain:
-                self.max_gain = gain 
+            # if gain > self.max_gain:
+            #     self.max_gain = gain 
+            if linked_node.get_degree() > self.max_gain:
+                self.max_gain = linked_node.get_degree()
                 
         #Initialize the buckets, assign -1 to denote nothing is in that gain index.
         self.cut_size = cut_size // 2
@@ -120,6 +122,9 @@ class FM:
                 #remove the neighbor from the old gain bucket.
                 bucket[n_old + max] = neighbor.remove()
                 
+                # if n_new+max > 2*max or n_new+max < 0:
+                #     print(f"Invalid gain value: {n_new}, {n_old}, {n_new+max}")
+                #     pass
                 #Insert the neighbor to the new gain bucket.
                 if bucket[n_new + max] is None:
                     bucket[n_new + max] = neighbor
@@ -146,17 +151,6 @@ class FM:
                 break # Run until both buckets are exhausted.
             
             solutions.append(step_result)
-                    
-            # #part1 = self.graph.get_partition(0)
-            # #part2 = self.graph.get_partition(1)
-            # if step_result is not None:
-            #     cut_size_before, cut_size_after, node_id = step_result
-            #     #print(f"Moved node {node_id} from partition 1 to 2. Cut size before: {cut_size_before}, after: {cut_size_after}")
-            #     if cut_size_before < cut_size_after:
-            #         #Current cut is worse than before, revert the move.
-            #         node_to_revert = self.graph.nodes[node_id]                
-            #         self.__move_node(node_to_revert)
-            #         #print(f"Reverted the move. Moved node {node_id} from partition 2 to 1.")
             
         if len(solutions) == 0:
             return self.cut_size
@@ -182,4 +176,10 @@ class FM:
         self.graph.reset_and_free_nodes()
         return self.cut_size
         
-        
+    def get_run_statistics(self):
+        return {
+            "runs": self.runs,
+            "run_times": self.run_durations,
+            "total_elapsed": sum(self.run_durations),
+            "average_elapsed": sum(self.run_durations) / len(self.run_durations)
+        }
