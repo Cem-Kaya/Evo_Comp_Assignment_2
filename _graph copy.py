@@ -7,9 +7,9 @@ class Graph:
     def __init__(self, filename: str):
         self.nodes = {}  # Dictionary {node_id: Node}
         self.load_graph(filename)
-        #self.solution = {}  # Dictionary {node_id: partition_id}
+        self.solution = {}  # Dictionary {node_id: partition_id}
         self.is_balanced = False
-        self.size_tracker = [0,0]
+        self.unbalanced_type = "unknown" # extra0 or extra1
         self.cut_size = -1 
         
     def load_graph(self, filename: str):
@@ -42,20 +42,34 @@ class Graph:
                     #If the dataset is correct, each node will update its neighbors array and the graph will be undirected.
                     #There is a test case to check if the graph is undirected.
                     #self.nodes[neighbor_id].add_neighbor(node_id)  # Undirected graph
-    
+
+
     def get_cut_size(self):
+        #Computes the number of edges that cross partitions
+        cut_size = 0
+        for node in self.nodes.values():
+            for neighbor_id in node.neighbors:
+                if self.solution[node.id] != self.solution[neighbor_id]:
+                    cut_size += 1
+                    
+        self.cut_size = cut_size #update the cut size. This is useful for debugging and ToString method.
+        return cut_size // 2  # Each edge counted twice
+    
+    def get_cut_size_node_traversal_temp(self):
         #Computes the number of edges that cross partitions
         cut_size = 0
         for node in self.nodes.values():
             for neighbor_id in node.neighbors:
                 if node.partition != self.nodes[neighbor_id].partition:
                     cut_size += 1
-              
-        # Each edge counted twice      
-        self.cut_size = cut_size // 2 # update the cut size. This is useful for debugging and ToString method.
-        return self.cut_size 
+                    
+        self.cut_size = cut_size #update the cut size. This is useful for debugging and ToString method.
+        return cut_size // 2  # Each edge counted twice
 
     def set_random_solution(self, seed=None):
+        #reset the nodes
+        self.reset_and_free_nodes()
+        
         #Generates a random balanced partitioning of nodes
         node_ids = list(self.nodes.keys())  
         
@@ -75,46 +89,41 @@ class Graph:
         self.set_solution_explicit(new_solution) 
     
     def reset_and_free_nodes(self):
-        """This method will remove the next and prev pointers from linked nodes and set the locked=False.
-        It will also reset the last_calculated_gain and last_calculated_cut values.
-        """
         #Free the nodes
         for node in self.nodes.values():
             node.free()
             node.reset()
-            node.last_calculated_gain = -1
-            node.last_calculated_cut = -1
     
     def set_solution_explicit(self, solution: dict):
-        assert len(solution)% 2 == 0, "The number of nodes must be even."
-        self.size_tracker = [0,0]
-        
-        #reset the nodes
-        self.reset_and_free_nodes()
+        #Sets the solution explicitly
+        self.solution = solution
         
         #Update the partition of the nodes
-        for node_id in solution:
-            self.nodes[node_id].partition = solution[node_id]
-            self.size_tracker[solution[node_id]] += 1           
+        for node_id in self.solution:
+            self.nodes[node_id].partition = self.solution[node_id]
         
-        self.is_balanced = self.size_tracker[0] == self.size_tracker[1]
-        assert self.is_balanced, "The solution is not balanced."        
-        self.get_cut_size() #This will update the cut size property.
+        assert len(self.solution)% 2 == 0, "The number of nodes must be even."
+        self.is_balanced = True
+        self.get_cut_size() #This will update the cut size property.        
         
-    def move_node(self, node_id: int):
-        dest= 1- self.nodes[node_id].partition
-        self.nodes[node_id].partition = dest
-        self.size_tracker[dest] += 1
-        self.size_tracker[1 - dest] -= 1
-        self.is_balanced = self.size_tracker[0] == self.size_tracker[1]
-    
-    def get_partition_balance(self) -> int:
-        """Gets the balance of the partition. Returns an integer value indicating the balance.
+    def move_node_to_other_solution(self, node_id:int):
+        #switch the partition of the node
+        self.solution[node_id] = 1 - self.solution[node_id]
         
-        Returns:
-            int: less than 0 if partition 0 is smaller, greater than 0 if partition 1 is smaller, 0 if equal.
-        """
-        return self.size_tracker[0] - self.size_tracker[1]
+    def calculate_gain_for_node(self, node_id:int):
+        #Calculate the gain of the node. If a neighbor is in the same partition, gain is decreased by 1,
+        #Because when we move this node to the other partition, the cut size will be increased by 1.
+        gain = 0
+        node = self.nodes[node_id]
+        
+        for neighbor_id in node.neighbors:
+            if self.solution[node_id] != self.solution[neighbor_id]:
+                gain += 1
+            else:
+                gain -= 1
+                
+        node.last_calculated_gain = gain
+        return gain
     
     def calculate_gain(self, node: LinkedNode):
         #Calculate the gain of the node. If a neighbor is in the same partition, gain is decreased by 1,

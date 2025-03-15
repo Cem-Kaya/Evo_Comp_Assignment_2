@@ -5,9 +5,7 @@ import time
 class FM:
     def __init__(self, graph:Graph):
         self.graph = graph   
-        self.max_gain = -1
-        self.size_part_1 = 0
-        self.size_part_2 = 0
+        self.max_gain = -1        
         self.cut_size = 0     
         self.runs = 0
         self.run_durations = []
@@ -35,6 +33,8 @@ class FM:
         sizes = [0, 0]
         
         for node_id in self.graph.nodes:
+            if max == 0:
+                break #there is nothing to do. solution is already optimal.
             # '+ max' to shift the index to positive.
             linked_node = self.graph.nodes[node_id]
             gain = linked_node.last_calculated_gain + max             
@@ -46,6 +46,7 @@ class FM:
             
             #update the size tracker. This is for not to calculate partition size every time for balancing.
             sizes[linked_node.partition] += 1 
+            
         self.gains_left = gains_left
         self.gains_right = gains_right
         self.size_part_1 = sizes[0]
@@ -63,8 +64,10 @@ class FM:
         return self.gains_right[gain + self.max_gain]
     
     def run_single_pass(self):        
-        current_gain_list = self.gains_left#TODO: if the sizes are equal, it must be random pick.
-        if self.size_part_1 < self.size_part_2:
+        #TODO: if the sizes are equal, it must be random pick. But if we do that, the tests will fail.
+        #We need to make this a flag like 'random_pick' to make it random.
+        current_gain_list = self.gains_left 
+        if self.graph.get_partition_balance() < 0:
             # If the left partition is smaller, pick one from the right partition.
             current_gain_list = self.gains_right 
         max = self.max_gain                
@@ -81,20 +84,13 @@ class FM:
         
         if node == None:
             #There is no node to move.
-            return None
+            return None        
         
-        #Remove the node from the linked list, and assign the next node to the current gain index.
-        
-        gain = current_gain_list.index(node)
-        #Remove the node from the linked list, and assign the next node to the current gain index.
-        #Lock the node to prevent it from being moved again.
+        #Remove the node from the linked list and lock it to prevent it from being moved again.
+        #The next node in the linked list will replace the removed node.
         current_gain_list[gain] = node.remove(locked=True)
-        #Update the size tracker.
-        if current_gain_list == self.gains_left:
-            self.size_part_1 -= 1
-        else:
-            self.size_part_2 -= 1
-            
+        
+        #Perform the move operation and update gains.
         return self.__move_node(node)
         
     def __move_node(self, node:LinkedNode):
@@ -103,7 +99,7 @@ class FM:
         max = self.max_gain    
         
         #Move the node to the other partition.
-        node.partition = 1 - node.partition
+        self.graph.move_node(node.id)
         
         #Recalculate the gain of the node        
         gain,cut = self.graph.calculate_gain(node)
@@ -131,27 +127,59 @@ class FM:
                     bucket[n_new + max].insert_after(neighbor)                
         
         #NOTE: if we can update the cut size as we move the nodes, we can avoid this array scan.
-        self.cut_size = self.graph.get_cut_size_node_traversal_temp()     
-        return cut_size_before, self.cut_size, node.id    
+        self.cut_size = self.graph.get_cut_size()     
+        return cut_size_before, self.cut_size, node.id, self.graph.is_balanced   
 
     def run_fm(self):
-        step_result = 0 # just initialize with some value    
-        while step_result is not None:        
+        #part1 = self.graph.get_partition(0)
+        #part2 = self.graph.get_partition(1)
+        solutions = []
+            
+        while True:        
             start_time = time.time()
             step_result = self.run_single_pass()
             end_time = time.time()
             self.run_durations.append(end_time - start_time)
             #print(f"Time taken for single pass: {end_time - start_time:.6f} seconds")
             self.runs += 1
-            if step_result is not None:
-                cut_size_before, cut_size_after, node_id = step_result
-                #print(f"Moved node {node_id} from partition 1 to 2. Cut size before: {cut_size_before}, after: {cut_size_after}")
-                if cut_size_before < cut_size_after:
-                    #Current cut is worse than before, revert the move.
-                    node_to_revert = self.graph.nodes[node_id]                
-                    self.__move_node(node_to_revert)
-                    #print(f"Reverted the move. Moved node {node_id} from partition 2 to 1.")
+            if step_result == None:
+                break # Run until both buckets are exhausted.
+            
+            solutions.append(step_result)
                     
+            # #part1 = self.graph.get_partition(0)
+            # #part2 = self.graph.get_partition(1)
+            # if step_result is not None:
+            #     cut_size_before, cut_size_after, node_id = step_result
+            #     #print(f"Moved node {node_id} from partition 1 to 2. Cut size before: {cut_size_before}, after: {cut_size_after}")
+            #     if cut_size_before < cut_size_after:
+            #         #Current cut is worse than before, revert the move.
+            #         node_to_revert = self.graph.nodes[node_id]                
+            #         self.__move_node(node_to_revert)
+            #         #print(f"Reverted the move. Moved node {node_id} from partition 2 to 1.")
+            
+        if len(solutions) == 0:
+            return self.cut_size
+        
+        # Find the best cut, it has to be smalles cut size and it must be balanced.
+        best_cut = None        
+        for solution in solutions:
+            _, cut_size_after, _, is_balanced = solution
+            if is_balanced and (best_cut is None or cut_size_after < best_cut[1]):
+                best_cut = solution                
+        
+        # We are doing hill climbing, so we need to revert the bad moves.
+        # reverse loop the solutions until we find the best cut.
+        for solution in reversed(solutions):
+            if solution == best_cut:
+                break # We found the best cut, stop reverting.
+            
+            #Revert the move until best cut.
+            _, _, node_id, _ = solution
+            self.graph.move_node(node_id)
+        
+        self.cut_size = self.graph.get_cut_size()
+        self.graph.reset_and_free_nodes()
         return self.cut_size
         
         

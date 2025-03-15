@@ -70,15 +70,59 @@ def test_cutsize():
     
     #We cannot use initilize solution method, because it is random. 
     #We need to set the solution manually.
-    graph.solution = {1: 0, 2: 0, 3: 0, 4: 1, 5: 1, 6: 1}
+    solution = {1: 0, 2: 0, 3: 0, 4: 1, 5: 1, 6: 1}
+    graph.set_solution_explicit(solution)
     cut_size = graph.get_cut_size()
     assert cut_size == 1
     
     #Test with another manual solution. Swap 3 with 5. The cut size is 5.
-    graph.solution = {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1}
+    solution = {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1}
+    graph.set_solution_explicit(solution)
     cut_size = graph.get_cut_size()
     assert cut_size == 5
-
+    """This test case is for the graph operations. 
+    It will test the primary node operations like moving a node to the other partition and calculating the gain of a node.
+    It is also a mini-simulation of the FM algorithm.
+    """
+    graph_file = "test_graph1.txt"
+    graph = g.Graph(graph_file)
+    
+    #Test with another manual solution. Swap 3 with 5. The cut size is 5.
+    #Start with a bad solution.
+    solution = {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1}
+    graph.set_solution_explicit(solution)
+    cut_size = graph.get_cut_size()
+    assert cut_size == 5
+    
+    #If we move the node 3 to the other partition,
+    #the cut size will be decreased by 3, so the gain must be 3.
+    node3 = graph.nodes[3]  
+    gain,cut = graph.calculate_gain(node3)  
+    assert gain == 3
+    assert node3.last_calculated_gain == gain #The gain is stored in the node object for easy access.
+    
+    #Move the node to the other partition
+    graph.move_node(3)
+    assert graph.nodes[3].partition == 0
+    cut_size = graph.get_cut_size()
+    #cut size is decreased by 3, so cut size will be 2 (because 5 is still there), 
+    #the solution is unbalanced at this stage.
+    assert cut_size == 2 
+    
+    #get the gain of 5.
+    node5 = graph.nodes[5]
+    gain,cut = graph.calculate_gain(node5)
+    assert gain == 1 # Gain will be 1 because we moved 3 to the other partition.
+    assert node5.last_calculated_gain == gain
+    
+    #move the node 5 to the other partition
+    graph.move_node(5)
+    cut_size = graph.get_cut_size()
+    #cut size is decreased by 1.
+    #so cut size will be 1 and the solution is balanced. This is the optimal solution.
+    #This is the optimal convergence behavior for this trivial graph.
+    assert cut_size == 1
+    
 def test_graph_operations():
     """This test case is for the graph operations. 
     It will test the primary node operations like moving a node to the other partition and calculating the gain of a node.
@@ -89,52 +133,12 @@ def test_graph_operations():
     
     #Test with another manual solution. Swap 3 with 5. The cut size is 5.
     #Start with a bad solution.
-    graph.solution = {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1}
-    cut_size = graph.get_cut_size()
-    assert cut_size == 5
-    
-    #If we move the node 3 to the other partition,
-    #the cut size will be decreased by 3, so the gain must be 3.
-    node3 = graph.nodes[3]  
-    gain = graph.calculate_gain_for_node(3)  
-    assert gain == 3
-    assert node3.last_calculated_gain == gain #The gain is stored in the node object for easy access.
-    
-    #Move the node to the other partition
-    graph.move_node_to_other_solution(3)
-    assert graph.solution[3] == 0
-    cut_size = graph.get_cut_size()
-    #cut size is decreased by 3, so cut size will be 2 (because 5 is still there), 
-    #the solution is unbalanced at this stage.
-    assert cut_size == 2 
-    
-    #get the gain of 5.
-    node5 = graph.nodes[5]
-    gain = graph.calculate_gain_for_node(5)
-    assert gain == 1 # Gain will be 1 because we moved 3 to the other partition.
-    assert node5.last_calculated_gain == gain
-    
-    #move the node 5 to the other partition
-    graph.move_node_to_other_solution(5)
-    cut_size = graph.get_cut_size()
-    #cut size is decreased by 1.
-    #so cut size will be 1 and the solution is balanced. This is the optimal solution.
-    #This is the optimal convergence behavior for this trivial graph.
-    assert cut_size == 1
-    
-def test_graph_operations2():
-    """This test case is for the graph operations. 
-    It will test the primary node operations like moving a node to the other partition and calculating the gain of a node.
-    It is also a mini-simulation of the FM algorithm.
-    """
-    graph_file = "test_graph1.txt"
-    graph = g.Graph(graph_file)
-    
-    #Test with another manual solution. Swap 3 with 5. The cut size is 5.
-    #Start with a bad solution.
     graph.set_solution_explicit({1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1})
-    cut_size = graph.get_cut_size_node_traversal_temp()
+    cut_size = graph.get_cut_size()
     assert cut_size == 5
+    assert graph.is_balanced == True
+    balance = graph.get_partition_balance()
+    assert balance == 0
     
     #If we move the node 3 to the other partition,
     #the cut size will be decreased by 3, so the gain must be 3.
@@ -144,13 +148,16 @@ def test_graph_operations2():
     assert node3.last_calculated_gain == gain[0] #The gain is stored in the node object for easy access.
     
     #Move back the gain must be -previous gain, because we made a better solution by moving the node 3.
-    node3.partition = 1 - node3.partition
+    graph.move_node(3)
     gain = graph.calculate_gain(node3)
     #Note that the cut is 0, because the node 3 is not connected to any node in the other partition, but the solution is unbalanced.
     assert gain == (-3, 0) 
     assert node3.last_calculated_gain == gain[0] #The gain is stored in the node object for easy access.
+    assert graph.is_balanced == False
+    balance = graph.get_partition_balance()
+    assert balance == 2
     
-    cut_size = graph.get_cut_size_node_traversal_temp() 
+    cut_size = graph.get_cut_size() 
     assert cut_size == 2
     
     #get the gain of 5.
@@ -159,11 +166,20 @@ def test_graph_operations2():
     assert gain == (1,2) # Gain will be 1 because we moved 3 to the other partition.
     assert node5.last_calculated_gain == gain[0]
     
-    #move the node 5 to the other partition
-    node5.partition = 1 - node5.partition
-    cut_size = graph.get_cut_size_node_traversal_temp()
+    #move the node 5 to the other partition. Now the solution is balanced.
+    graph.move_node(5)
+    cut_size = graph.get_cut_size()
     #cut size is decreased by 1.
     assert cut_size == 1
+    assert graph.is_balanced == True
+    balance = graph.get_partition_balance()
+    assert balance == 0
+    
+    #Check balance again. Move node 1 to the other partition. Now the solution is unbalanced in fgavor of partition 1.
+    graph.move_node(1)
+    balance = graph.get_partition_balance()
+    assert balance == -2
+    assert graph.is_balanced == False
 
 def test_linked_node():
     node1 = LinkedNode(1)
@@ -200,6 +216,7 @@ def test_linked_node():
     assert current == None
     
 def test_fm_single_pass():
+    #See test_scenario_1.png for the graph.
     #load the test graph
     graph_file = "test_graph1.txt"
     graph = g.Graph(graph_file)
@@ -207,7 +224,7 @@ def test_fm_single_pass():
     #Setup the scenario. Bad solution.
     custom_solution = {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1}
     graph.set_solution_explicit(custom_solution)
-    cut_size = graph.get_cut_size_node_traversal_temp()
+    cut_size = graph.get_cut_size()
     assert cut_size == 5
     
     #Create the FM object, it initializes the buckets.
@@ -334,6 +351,7 @@ def test_fm_single_pass():
     _check_bucket_contents(fm, expected_bucket_left, expected_bucket_right, max)
 
 def test_fm_run():
+    #See test_scenario_1.png for the graph.
     #load the test graph
     graph_file = "test_graph1.txt"
     graph = g.Graph(graph_file)
@@ -341,7 +359,7 @@ def test_fm_run():
     #Setup the scenario. Bad solution.
     custom_solution = {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1}
     graph.set_solution_explicit(custom_solution)
-    cut_size = graph.get_cut_size_node_traversal_temp()
+    cut_size = graph.get_cut_size()
     assert cut_size == 5
     
     #Create the FM object, it initializes the buckets.
@@ -354,6 +372,99 @@ def test_fm_run():
     #Run the FM algorithm. It will run until the cut size is not improved.
     res = fm.run_fm()
     assert res == 1 #The optimal solution is found. The cut size is 1.
+    
+    #the solution is balanced now.
+    assert graph.get_cut_size() == 1
+    for i in range(len(fm.gains_left)):
+        assert fm.gains_left[i] == None
+        assert fm.gains_right[i] == None
+    
+    #get the first partition from graph
+    partition = graph.get_partition(0)
+    assert len(partition) == 3
+    assert 1 in partition
+    assert 2 in partition
+    assert 3 in partition
+    
+    #get the second partition from graph
+    partition = graph.get_partition(1)
+    assert len(partition) == 3
+    assert 4 in partition
+    assert 5 in partition
+    assert 6 in partition
+    
+def test_edge_case_start_optimal():
+    graph_file = "test_graph1.txt"
+    graph = g.Graph(graph_file)
+    
+    #Setup the scenario. Optimal solution.
+    custom_solution = {1: 0, 2: 0, 3: 0, 4: 1, 5: 1, 6: 1}
+    graph.set_solution_explicit(custom_solution)
+    cut_size = graph.get_cut_size()
+    assert cut_size == 1
+        
+    #Create the FM object, it initializes the buckets.
+    fm = FM(graph)
+    #Run the FM algorithm. It will run until the cut size is not improved.
+    res = fm.run_fm()
+    assert res == 1 #The optimal solution is found. The cut size is 1.
+    
+    #the solution is balanced now.
+    assert graph.get_cut_size() == 1
+    for i in range(len(fm.gains_left)):
+        assert fm.gains_left[i] == None
+        assert fm.gains_right[i] == None
+    
+    #get the first partition from graph
+    partition = graph.get_partition(0)
+    assert len(partition) == 3
+    assert 1 in partition
+    assert 2 in partition
+    assert 3 in partition
+    
+    #get the second partition from graph
+    partition = graph.get_partition(1)
+    assert len(partition) == 3
+    assert 4 in partition
+    assert 5 in partition
+    assert 6 in partition
+    
+def test_graph_with_island():
+    #see test_scenario_2.png for the graph.
+    graph_file = "test_graph2.txt"
+    graph = g.Graph(graph_file)
+    #there is an island in the graph. 7,8,9 are connected to each other, separate from the rest of the graph.
+    #Setup the scenario. Bad solution.
+    custom_solution = {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1, 7: 1, 8: 1, 9: 0,10: 0}
+    graph.set_solution_explicit(custom_solution)
+    cut_size = graph.get_cut_size()
+    assert cut_size == 7
+    partition1 = graph.get_partition(0)
+    assert len(partition1) == 5
+    partition2 = graph.get_partition(1)
+    assert len(partition2) == 5
+    
+    fm = FM(graph)
+    res = fm.run_fm()
+    #The optimal solution is found. The cut size is 3. The island cannot be completely in one partition because of 
+    #size constaints.
+    assert res == 3
+    
+    #the solution is balanced now.
+    assert graph.get_cut_size() == 3
+    for i in range(len(fm.gains_left)):
+        assert fm.gains_left[i] == None
+        assert fm.gains_right[i] == None
+    
+    #get the first partition from graph
+    expected_partition = [1,2,3,9,10]
+    partition1 = graph.get_partition(0)
+    assert expected_partition == partition1
+    
+    #get the second partition from graph
+    expected_partition = [5,4,6,7,8]
+    partition2 = graph.get_partition(1)
+    assert expected_partition == partition2
 
 def _check_bucket_contents(fm:FM, expected_left:list, expected_right:list, max:int):
     #Check left.
