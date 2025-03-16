@@ -17,24 +17,24 @@ def run_mls(runs=10000)->list[dict]:
     
     for _ in range(runs):
         #Initialize a new random solution.
-        graph.set_random_solution()
-        current_cut = graph.get_cut_size()
+        graph.set_random_solution()        
         fm_impl = fm.FM(graph)
         fm_impl.run_fm()
-        stats = fm_impl.get_run_statistics()
-        stats['initial_cut'] = current_cut
+        stats = fm_impl.get_run_statistics()        
         results.append(stats)
 
+    export_results(results, "MLS", f"{runs}")
+    return results
+
+def export_results(results:list[dict], exp_name:str, suffix:str):
     # LLM prompt: serialize the results as json to a file. File name format is yyyy-mm-dd_HH-MM-SS_MLS.txt
     # Generate filename with current timestamp
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    filename = f'./experiment_results/{timestamp}_MLS.txt'
-
+    filename = f'./experiment_results/{timestamp}_{exp_name}_{suffix}.txt'
     # Write results to file
     with open(filename, 'w') as f:
         json.dump(results, f, indent=4)
-    return results
-
+        
 def summarize_results(results:list[dict]):
     # This is the content of the each dictionary in the results list:
     # "fm_runs": number of runs until convergence,

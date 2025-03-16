@@ -7,6 +7,7 @@ class FM:
         self.graph = graph   
         self.max_gain = -1        
         self.cut_size = 0     
+        self.initial_cut_size = 0
         self.runs = 0
         self.run_durations = []
         self.__initialize_buckets()        
@@ -22,6 +23,7 @@ class FM:
                 
         #Initialize the buckets, assign -1 to denote nothing is in that gain index.
         self.cut_size = self.graph.get_cut_size()
+        self.initial_cut_size = self.cut_size
         max = self.max_gain
         
         #range: -max_gain to max_gain and there is 0.
@@ -177,6 +179,7 @@ class FM:
             "run_times": self.run_durations,
             "total_elapsed": sum(self.run_durations),
             "average_elapsed": sum(self.run_durations) / len(self.run_durations),
+            "initial_cut": self.initial_cut_size,
             "cut_size": self.cut_size,
             "partition_1":self.graph.get_partition(0),
             "partition_2":self.graph.get_partition(1)
