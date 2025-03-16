@@ -173,8 +173,11 @@ class FM:
         
     def get_run_statistics(self):
         return {
-            "runs": self.runs,
+            "fm_runs": self.runs,
             "run_times": self.run_durations,
             "total_elapsed": sum(self.run_durations),
-            "average_elapsed": sum(self.run_durations) / len(self.run_durations)
+            "average_elapsed": sum(self.run_durations) / len(self.run_durations),
+            "cut_size": self.cut_size,
+            "partition_1":self.graph.get_partition(0),
+            "partition_2":self.graph.get_partition(1)
         }
