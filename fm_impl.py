@@ -1,6 +1,7 @@
 from graph import Graph
 from node_linked import LinkedNode
 import time
+import statistics
 
 class FM:
     def __init__(self, graph:Graph):
@@ -176,9 +177,10 @@ class FM:
     def get_run_statistics(self):
         return {
             "fm_runs": self.runs,
-            "run_times": self.run_durations,
+            #"run_times": self.run_durations,
             "total_elapsed": sum(self.run_durations),
             "average_elapsed": sum(self.run_durations) / len(self.run_durations),
+            "stdev_elapsed": statistics.stdev(self.run_durations) if len(self.run_durations) > 1 else 0,
             "initial_cut": self.initial_cut_size,
             "cut_size": self.cut_size,
             "partition_1":self.graph.get_partition(0),

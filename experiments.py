@@ -3,6 +3,8 @@ from graph import Graph
 import json
 import datetime
 import os
+import statistics
+import re
 
 # Create a graph from a file
 # Create experiment_results directory if it doesn't exist
@@ -33,7 +35,9 @@ def export_results(results:list[dict], exp_name:str, suffix:str):
     filename = f'./experiment_results/{timestamp}_{exp_name}_{suffix}.txt'
     # Write results to file
     with open(filename, 'w') as f:
-        json.dump(results, f, indent=4)
+        # Custom JSON encoder to keep lists on single lines
+        json_str = json.dumps(results, indent=4)                
+        f.write(json_str)
         
 def summarize_results(results:list[dict]):
     # This is the content of the each dictionary in the results list:
@@ -58,14 +62,15 @@ def summarize_results(results:list[dict]):
     # "Worst Initial Cut Size": worst initial cut (maximum initial_cut_size)
     summary = {
         "Total Runs": len(results),
-        "Average Runs": sum(r['fm_runs'] for r in results) / len(results),
-        "Average Elapsed (full FM)": sum(r['total_elapsed'] for r in results) / len(results),
-        "Average Elapsed (single run)": sum(sum(r['run_times']) / len(r['run_times']) for r in results) / len(results),
+        "Average Runs": statistics.mean(r['fm_runs'] for r in results),
+        "Average Elapsed (full FM)": statistics.mean(r['total_elapsed'] for r in results),
+        "Stdev Elapsed (full FM)": statistics.stdev(r['total_elapsed'] for r in results),
+        #"Average Elapsed (single run)": statistics.mean(sum(r['run_times']) / len(r['run_times']) for r in results),
         "Total Elapsed": sum(r['total_elapsed'] for r in results),
-        "Average Cut Size": sum(r['cut_size'] for r in results) / len(results),
+        "Average Cut Size": statistics.mean(r['cut_size'] for r in results),
         "Best Cut Size": min(r['cut_size'] for r in results),
         "Worst Cut Size": max(r['cut_size'] for r in results),
-        "Average Initial Cut Size": sum(r['initial_cut'] for r in results) / len(results),
+        "Average Initial Cut Size": statistics.mean(r['initial_cut'] for r in results),
         "Best Initial Cut Size": min(r['initial_cut'] for r in results),
         "Worst Initial Cut Size": max(r['initial_cut'] for r in results)
     }
