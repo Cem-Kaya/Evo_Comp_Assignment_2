@@ -24,12 +24,15 @@ class ILS:
         self.max_iterations = max_iterations
         self.mutation_size = mutation_size
         self.random_seed = random_seed
+        
         self.best_cut_size = None
         self.best_solution = None
         self.initial_cut_size = None
+        
         self.iteration_data = []  # store data from each iteration
         self.start_time = None
         self.end_time = None
+        
         if self.random_seed is not None:
             random.seed(self.random_seed)
 
@@ -41,12 +44,14 @@ class ILS:
         #1 
         self.graph.set_random_solution()
         self.initial_cut_size = self.graph.get_cut_size()
+        
         # 2 Run FM
         fm_impl = FM(self.graph)
         fm_impl.run_fm()
+        
         # 3 Store best solutions
         self.best_cut_size = self.graph.get_cut_size()
-        self.best_solution = self._extract_solution()
+        self.best_solution = self._get_solution()
 
         # 4 5 6 
         for iteration in range(self.max_iterations):
@@ -66,7 +71,7 @@ class ILS:
             # 6 Accept if it is better
             if new_cut < self.best_cut_size:
                 self.best_cut_size = new_cut
-                self.best_solution = self._extract_solution()
+                self.best_solution = self._get_solution()
             else:
                 # revert to old best
                 self._apply_solution(old_best_sol)
@@ -97,8 +102,8 @@ class ILS:
             "iteration_log": self.iteration_data,
         }
 
-    def _extract_solution(self):
-        """Grabs the current partitioning from self.graph into a dict {node_id: partition}."""
+    def _get_solution(self):
+        #"gets the partitioning from self.graph into a dict {node_id: partition}."
         sol = {}
         for node_id, node_obj in self.graph.nodes.items():
             sol[node_id] = node_obj.partition
@@ -110,11 +115,12 @@ class ILS:
 
     def _mutate_solution(self):
         # Mutate the current solution
-        # uses mutation_size to determine how many nodes to swap
+        # uses mutation_size to determine how many nodes to SWAP 
         part0_nodes = [n for n in self.graph.nodes.values() if n.partition == 0]
         part1_nodes = [n for n in self.graph.nodes.values() if n.partition == 1]
 
-        # If the graph is not large enough, safely clamp
+        # If the graph is not large enough clamp
+        #assert len(part0_nodes) >= self.mutation_size 
         swap_count = min(len(part0_nodes), len(part1_nodes), self.mutation_size)
 
         if swap_count < 1:
@@ -138,23 +144,30 @@ class ILS:
 
 if __name__ == "__main__":
     # 1 Instantiate with desired parameters
-    ils = ILS(
-        graph_filename="Graph500.txt", 
-        max_iterations=100,    # number of ILS iterations
-        mutation_size=5,       # how big each random "perturbation" is
-        random_seed=42
-    )
     
-    # 2 Run ILS
-    best_cut = ils.run_ils()
-    
-    # 3 Collect run statistics
-    stats = ils.get_run_statistics()
-    
-    print(f"ILS best cut size found: {best_cut}")
-    print("---- Summary ----")
+    for m in [1, 2, 5, 7, 10, 15 ,20, 30, 50, 100]:
+        ils = ILS(
+            graph_filename="Graph500.txt", 
+            max_iterations=250,    # 
+            mutation_size=m,       # 
+            random_seed=42
+        )
+        
+        # 2 Run ILS
+        best_cut = ils.run_ils()
+        
+        # 3 Collect run statistics
+        stats = ils.get_run_statistics()
+        
+        print(f"ILS best cut size for mutation size of :{m} found: {best_cut}")
+        
+        
+        
+        
+        
+    #print("---- Summary ----")
     for k, v in stats.items():
-        print(f"{k}: {v}")
+        pass#print(f"{k}: {v}")
 
 
 
