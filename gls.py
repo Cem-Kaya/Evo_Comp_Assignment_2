@@ -4,6 +4,9 @@ import statistics
 from fm_impl import FM
 from graph import Graph
 
+from multiprocessing import Process, Queue
+
+
 class GLS:
     """
     Genetic Local Search + FM local heuristic 
