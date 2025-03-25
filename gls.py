@@ -217,6 +217,47 @@ class GLS:
         return child
 
 
+
+    def run_gls_time(self, time_limit_seconds=600):
+        # gls with time limit 
+        self.start_time = time.time()
+        self._init_population()
+
+        iteration = 0
+        while (time.time() - self.start_time) < time_limit_seconds:
+            iteration += 1
+
+            # Randomly select two parents
+            parent1, parent2 = random.sample(self.population, 2)
+
+            # Produce one child
+            child_solution = self._uniform_crossover(parent1["solution"], parent2["solution"])
+
+            # Optimize child
+            child_cut_size = self._optimize_with_fm(child_solution)
+
+            # Find worst in population
+            worst_individual = max(self.population, key=lambda x: x["cut_size"])
+
+            # Replace worst if child is better or equal
+            if child_cut_size <= worst_individual["cut_size"]:
+                worst_individual["solution"] = child_solution
+                worst_individual["cut_size"] = child_cut_size
+
+            # Update best solution
+            if child_cut_size < self.best_cut_size:
+                self.best_cut_size = child_cut_size
+                self.best_solution = dict(child_solution)
+
+            #  Track iteration data 
+            self.iteration_data.append({
+                "iteration": iteration,
+                "best_cut_size_so_far": self.best_cut_size
+            })
+
+        self.end_time = time.time()
+        return self.best_cut_size
+
 if __name__ == "__main__":
   
     pop_sizes_to_test = [4, 10, 20, 50, 100,200, 500] # must be even 
