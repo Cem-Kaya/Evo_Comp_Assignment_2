@@ -22,6 +22,7 @@ class ILS:
     def __init__(self, graph_filename: str, max_iterations=1000, mutation_size=20, random_seed=None):
         self.graph = Graph(graph_filename)
         self.max_iterations = max_iterations
+        self.n_iterations = 0
         self.mutation_size = mutation_size
         self.random_seed = random_seed
         
@@ -49,10 +50,19 @@ class ILS:
         # 2 Run FM
         fm_impl = FM(self.graph)
         fm_impl.run_fm()
+        self.n_iterations += 1
+        
         
         # 3 Store best solutions
         self.best_cut_size = self.graph.get_cut_size()
         self.best_solution = self._get_solution()
+        
+        self.iteration_data.append({
+                "iteration": self.n_iterations,
+                "best_cut_size_so_far": self.best_cut_size,
+                "current_cut_size": self.best_cut_size,
+                "same_local_optimum": False
+            })
 
         # 4 5 6 
         for iteration in range(self.max_iterations):
@@ -67,6 +77,7 @@ class ILS:
             # 5 Run FM again from the mutated 
             fm_impl = FM(self.graph)
             fm_impl.run_fm()
+            self.n_iterations += 1
             new_cut = self.graph.get_cut_size()
 
             if new_cut == old_best_cut:
@@ -81,7 +92,7 @@ class ILS:
 
             #Track 
             self.iteration_data.append({
-                "iteration": iteration + 1,
+                "iteration": self.n_iterations,
                 "best_cut_size_so_far": self.best_cut_size,
                 "current_cut_size": new_cut,
                 "same_local_optimum": new_cut == old_best_cut
@@ -90,22 +101,6 @@ class ILS:
         self.end_time = time.time()
         # 
         return self.best_cut_size
-
-    def get_run_statistics(self):
-        # Return a summary
-       
-        total_time = (self.end_time - self.start_time) if (self.start_time and self.end_time) else 0.0
-        cut_values = [item["best_cut_size_so_far"] for item in self.iteration_data]
-        return {
-            "max_iterations": self.max_iterations,
-            "mutation_size": self.mutation_size,
-            "initial_cut": self.initial_cut_size,
-            "best_cut_size": self.best_cut_size,
-            "time_elapsed": total_time,
-            "average_cut_in_iterations": statistics.mean(cut_values) if cut_values else None,
-            "iteration_log": self.iteration_data,
-            "n_stays_in_local_optimum": self.n_stays_in_local_optimum
-        }
 
     def _get_solution(self):
         #"gets the partitioning from self.graph into a dict {node_id: partition}."
@@ -142,10 +137,65 @@ class ILS:
         for node_obj in chosen_from_1:
             self.graph.move_node(node_obj.id)
 
-
-
-
-
+    def get_run_statistics(self):
+        # Return a summary
+       
+        total_time = (self.end_time - self.start_time) if (self.start_time and self.end_time) else 0.0
+        best_cut_values = [item["best_cut_size_so_far"] for item in self.iteration_data]
+        all_cut_values = [item["current_cut_size"] for item in self.iteration_data]
+        
+        return {
+            "max_iterations": self.max_iterations,
+            "n_iterations": self.n_iterations,
+            "mutation_size": self.mutation_size,
+            "initial_cut": self.initial_cut_size,
+            "best_cut_size": self.best_cut_size,
+            "time_elapsed": total_time,
+            "avg_best_cut_size": statistics.mean(best_cut_values) if best_cut_values else None,
+            "avg_cut_size": statistics.mean(all_cut_values) if best_cut_values else None,
+            #"iteration_log": self.iteration_data,
+            "n_stays_in_local_optimum": self.n_stays_in_local_optimum
+        }
+        
+def run_ils(mutation_size:int, max_iterations=10000, runs:int=10):
+    
+    results = []    
+    best = 501
+    
+    for i in range(runs):
+        ils = ILS(
+            graph_filename="Graph500.txt", 
+            max_iterations=max_iterations,    # 
+            mutation_size=mutation_size,       # 
+            random_seed=utils.generate_random_seed()
+        )
+        
+        # 2 Run ILS
+        best_cut = ils.run_ils()   
+        if best_cut < best:     
+            best = best_cut
+        # 3 Collect run statistics
+        stats = ils.get_run_statistics()        
+        results.append(stats)        
+        print(f"ILS -{i}- Mutation Size: {mutation_size}. Best Cut: {best_cut}.")        
+    
+    #get the average best_cut_size from the results
+    avg_best_cut_size = statistics.mean([r['best_cut_size'] for r in results])    
+    #get the average time elapsed from the results
+    avg_time_elapsed = statistics.mean([r['time_elapsed'] for r in results])
+    #Insert both metrics into results
+    summary = {"Algorithm":"ILS", 
+               "runs": runs,
+               "mutation_size": mutation_size,
+               "max_iterations": max_iterations,      
+               "best_cut": best,        
+               "avg_best_cut_size": avg_best_cut_size, 
+               "avg_time_elapsed": avg_time_elapsed}
+    results.append(summary)
+    
+    experiment_name = f"ILS-mutation_{mutation_size}-runs_{runs}-max_iterations_{max_iterations}-best_cut_{round(avg_best_cut_size, 2)}-time_{round(avg_time_elapsed, 3)}"
+    utils.save_as_pickle(results, experiment_name)
+    return best, avg_best_cut_size,results
 
 if __name__ == "__main__":
     # 1 Instantiate with desired parameters
