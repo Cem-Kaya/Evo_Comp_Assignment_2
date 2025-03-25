@@ -57,54 +57,41 @@ class GLS:
         """        
           1 Initialize population 
           2 Repeat for max_iterations:
-              a Shuffle pair up parents.
-              b For each pair -> produce one child -> optimize with FM.
-              c Combine old population + new children; keep only top pop_size.
+              a Shuffle pair up parents 2 .
+              b For each new generation -> produce one child -> optimize with FM.
+              c Combine old population + new children keep only top pop_size(-1).
               d Track best solution found so far.
         """
         self.start_time = time.time()
         self._init_population()
 
-        # Main generational loop
         for iteration in range(1, self.max_iterations + 1):
+            # Randomly select two parents
+            parent1, parent2 = random.sample(self.population, 2)
 
-            #  Shuffle -> pair up parents
-            random.shuffle(self.population)
+            # Produce one child per generation
+            child_solution = self._uniform_crossover(parent1["solution"], parent2["solution"])
 
-            #  For each pair -> produce a child -> optimize
-            new_children = []
-            
-            assert self.pop_size % 2 == 0, "Population size must be even for pairing."
-            for i in range(0, self.pop_size, 2):
-                parent1 = self.population[i]
-                parent2 = self.population[i+1]
+            # Optimize child
+            child_cut_size = self._optimize_with_fm(child_solution)
 
-                # produce child by crossover
-                child_solution = self._uniform_crossover(parent1["solution"], parent2["solution"])
-                #FM optimization
-                child_cut_size = self._optimize_with_fm(child_solution)
+            # Find the worst in population
+            worst_individual = max(self.population, key=lambda x: x["cut_size"])
 
-                new_children.append({
-                    "solution": child_solution,
-                    "cut_size": child_cut_size
-                })
+            # Replace worst if child is better or equal
+            if child_cut_size <= worst_individual["cut_size"]:
+                worst_individual["solution"] = child_solution
+                worst_individual["cut_size"] = child_cut_size
 
-            #  Combine old pop + new children and select the top pop_size
-            combined = self.population + new_children
-            #selection
-            selected = self.select_top(combined)
-             
-            self.population = selected  
+            # Update best solution
+            if child_cut_size < self.best_cut_size:
+                self.best_cut_size = child_cut_size
+                self.best_solution = dict(child_solution)
 
-            # best solution 
-            if self.population[0]["cut_size"] < self.best_cut_size:
-                self.best_cut_size = self.population[0]["cut_size"]
-                self.best_solution = dict(self.population[0]["solution"])
-
+            # Store iteration data as before (optional)
             self.iteration_data.append({
                 "iteration": iteration,
-                "best_cut_size_so_far": self.best_cut_size,
-                "best_cut_size_this_iter": min(child["cut_size"] for child in new_children)
+                "best_cut_size_so_far": self.best_cut_size
             })
 
         self.end_time = time.time()
@@ -170,10 +157,26 @@ class GLS:
         return {nid: node.partition for nid, node in tmp_graph.nodes.items()}
 
     def _uniform_crossover(self, parentA, parentB):
-        # TODO make it balanced 
+        # DONE make it balanced 
         all_nodes = sorted(parentA.keys())
         num_nodes = len(all_nodes)
         half = num_nodes // 2  # number of  1
+                
+        # copy 
+        parentB_copy = dict(parentB) 
+        
+        hamming_dist = 0         
+        for n in all_nodes:
+            if parentA[n] != parentB[n]:
+                hamming_dist += 1
+
+
+        # 2 If distance > half, invert parentB_copy
+        if hamming_dist > half:
+            for n in all_nodes:
+                parentB_copy[n] = 1 - parentB_copy[n]
+            parentB = parentB_copy
+
 
         child = {}
         assigned_ones = 0
