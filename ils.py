@@ -1,7 +1,7 @@
 import random
 import time
 import statistics
-
+import utils
 from fm_impl import FM
 from graph import Graph
 
@@ -28,6 +28,7 @@ class ILS:
         self.best_cut_size = None
         self.best_solution = None
         self.initial_cut_size = None
+        self.n_stays_in_local_optimum = 0
         
         self.iteration_data = []  # store data from each iteration
         self.start_time = None
@@ -68,19 +69,22 @@ class ILS:
             fm_impl.run_fm()
             new_cut = self.graph.get_cut_size()
 
-            # 6 Accept if it is better
-            if new_cut < self.best_cut_size:
+            if new_cut == old_best_cut:
+                self.n_stays_in_local_optimum += 1
+            elif new_cut < self.best_cut_size:
+                # 6 Accept if it is better
                 self.best_cut_size = new_cut
                 self.best_solution = self._get_solution()
             else:
                 # revert to old best
                 self._apply_solution(old_best_sol)
 
-            # Track 
+            #Track 
             self.iteration_data.append({
                 "iteration": iteration + 1,
                 "best_cut_size_so_far": self.best_cut_size,
                 "current_cut_size": new_cut,
+                "same_local_optimum": new_cut == old_best_cut
             })
 
         self.end_time = time.time()
@@ -100,6 +104,7 @@ class ILS:
             "time_elapsed": total_time,
             "average_cut_in_iterations": statistics.mean(cut_values) if cut_values else None,
             "iteration_log": self.iteration_data,
+            "n_stays_in_local_optimum": self.n_stays_in_local_optimum
         }
 
     def _get_solution(self):
@@ -144,13 +149,15 @@ class ILS:
 
 if __name__ == "__main__":
     # 1 Instantiate with desired parameters
+    random_seed = utils.generate_random_seed()
+    max_iteration_size = 250
     
     for m in [1, 2, 5, 7, 10, 15 ,20, 30, 50, 100]:
         ils = ILS(
             graph_filename="Graph500.txt", 
-            max_iterations=250,    # 
+            max_iterations=max_iteration_size,    # 
             mutation_size=m,       # 
-            random_seed=42
+            random_seed=random_seed
         )
         
         # 2 Run ILS
@@ -160,6 +167,7 @@ if __name__ == "__main__":
         stats = ils.get_run_statistics()
         
         print(f"ILS best cut size for mutation size of :{m} found: {best_cut}")
+        break
         
         
         

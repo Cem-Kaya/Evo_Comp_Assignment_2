@@ -279,7 +279,7 @@ if __name__ == "__main__":
 
     # Load the graph
     graph = Graph("simple_graph.txt")
-    graph.set_random_solution(seed=2)
+    graph.set_random_solution()
     print(f"graph : {graph}")
     # Construct the FM object
    

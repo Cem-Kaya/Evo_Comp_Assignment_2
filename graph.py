@@ -1,5 +1,6 @@
 import random
 from node_linked import LinkedNode
+import utils
 
 class Graph:
     # a class for the graph
@@ -60,8 +61,9 @@ class Graph:
         node_ids = list(self.nodes.keys())  
         
         if seed is not None:
+            seed = utils.generate_random_seed()
             random.seed(seed) 
-        random.shuffle(node_ids )   
+        random.shuffle(node_ids)   
         
         half_len= len(node_ids) // 2  # Half of the total nodes
         new_solution = {} 
@@ -149,7 +151,4 @@ class Graph:
         for node in self.nodes.values():
             string_ver += str(node) + "\n"
         return string_ver
-    
-    def mutate(self, mutation_size):
-        pass 
 

@@ -4,7 +4,9 @@ import json
 import datetime
 import os
 import statistics
-import re
+from ils import ILS
+import pickle
+
 
 # Create a graph from a file
 # Create experiment_results directory if it doesn't exist
@@ -32,14 +34,18 @@ def export_results(results:list[dict], exp_name:str, suffix:str):
     # LLM prompt: serialize the results as json to a file. File name format is yyyy-mm-dd_HH-MM-SS_MLS.txt
     # Generate filename with current timestamp
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    filename = f'./experiment_results/{timestamp}_{exp_name}_{suffix}.txt'
-    # Write results to file
-    with open(filename, 'w') as f:
-        # Custom JSON encoder to keep lists on single lines
-        json_str = json.dumps(results, indent=4)                
-        f.write(json_str)
+    #filename = f'./experiment_results/{timestamp}_{exp_name}_{suffix}.txt'
+    # # Write results to file
+    # with open(filename, 'w') as f:
+    #     # Custom JSON encoder to keep lists on single lines
+    #     json_str = json.dumps(results, indent=4)                
+    #     f.write(json_str)    
+    
+    filename = f'./experiment_results/{timestamp}_{exp_name}_{suffix}.pkl'
+    with open(filename, 'wb') as f:
+        pickle.dump(results, f)
         
-def summarize_results(results:list[dict]):
+def summarize_results_mls(results:list[dict]):
     # This is the content of the each dictionary in the results list:
     # "fm_runs": number of runs until convergence,
     # "run_times": a list of the run times of each run,
@@ -74,9 +80,8 @@ def summarize_results(results:list[dict]):
         "Best Initial Cut Size": min(r['initial_cut'] for r in results),
         "Worst Initial Cut Size": max(r['initial_cut'] for r in results)
     }
-    return summary
     
-    pass
+    return summary
 
 def deserialize_results(filename)->list[dict]:
     #LLM Prompt: Deserialize the results from the file and return the list of dictionaries
