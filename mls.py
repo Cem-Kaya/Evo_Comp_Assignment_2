@@ -62,52 +62,15 @@ class MLS:
             "initial_cut_size_best": min(initial_cut_values),
             "avg_time_per_fm": avg_per_fm
         }
-    
-def run_mls(max_iterations=10000, runs:int=10):    
-    results = []    
-    best = 1000000
-    
-    for i in range(runs):
-        mls = MLS(
-            graph_file="Graph500.txt", 
-            max_iterations=max_iterations,            
-            random_seed=utils.generate_random_seed()
-        )
-        
-        # 2 Run ILS
-        start = time.time()
-        best_cut = mls.run_single()   
-        elapsed = round(time.time() - start, 3)
-        
-        if best_cut < best:     
-            best = best_cut
-        # 3 Collect run statistics
-        stats = mls.get_run_statistics()        
-        results.append(stats)        
-        print(f"MLS - {i}. Best Cut: {best_cut}. Elapsed: {elapsed}.")        
-    
-    #get the average best_cut_size from the results
-    avg_best_cut_size = statistics.mean([r['best_cut_size'] for r in results])    
-    #get the average time elapsed from the results
-    avg_time_elapsed = statistics.mean([r['time_elapsed'] for r in results])
-    #Insert both metrics into results
-    summary = {"Algorithm":"MLS", 
-               "runs": runs,
-               "mutation_size": "N/A",
-               "max_iterations": max_iterations,      
-               "best_cut": best,
-               "avg_best_cut_size": avg_best_cut_size, 
-               "avg_time_elapsed": avg_time_elapsed}
-    results.append(summary)
-    
-    experiment_name = f"MLS-runs_{runs}-max_iterations_{max_iterations}-best_cut_{round(avg_best_cut_size, 2)}-time_{round(avg_time_elapsed, 3)}"
-    utils.save_as_pickle(results, experiment_name)
-    return best, avg_best_cut_size,results
+
+max_iter=10000
+graph_filename="Graph500.txt"
 
 def single_run(i):
+    
         mls = MLS(
-            graph_file="Graph500.txt", 
-            max_iterations=20,            
+            graph_file=graph_filename, 
+            max_iterations=max_iter,            
             random_seed=utils.generate_random_seed()
         )
         
@@ -118,8 +81,50 @@ def single_run(i):
         stats = mls.get_run_statistics()        
         print(f"MLS - {i}. Best Cut: {best_cut}. Elapsed: {elapsed}.")        
         return best_cut, stats
-        
-def run_mls_parallel(max_iterations=10000, runs:int=10):   
+
+def _process_results(results, best,max_iterations, runs, algorithm="MLS"):
+    avg_best_cut_size = statistics.mean([r['best_cut_size'] for r in results])    
+    avg_time_elapsed = statistics.mean([r['time_elapsed'] for r in results])
+    
+    summary = {"Algorithm":"MLS", 
+                "runs": runs,
+                "mutation_size": "N/A",
+                "max_iterations": max_iterations,      
+                "best_cut": best,         
+                "avg_best_cut_size": avg_best_cut_size, 
+                "avg_time_elapsed": avg_time_elapsed}
+    results = list(results)
+    results.append(summary)
+    
+    experiment_name = f"{algorithm}-runs_{runs}-max_iterations_{max_iterations}-best_cut_{round(avg_best_cut_size, 2)}-time_{round(avg_time_elapsed, 3)}"
+    utils.save_as_pickle(results, experiment_name)
+    return best, avg_best_cut_size, results
+       
+def run_mls(max_iterations=10000, runs:int=10, graph_file="Graph500.txt"):   
+    global max_iter
+    global graph_filename
+    graph_filename = graph_file
+    max_iter = max_iterations 
+    
+    results = []    
+    best = 1000000
+    
+    for i in range(runs):
+        # 2 Run ILS
+        best_cut, stats = single_run(i)
+        if best_cut < best:     
+            best = best_cut
+        # 3 Collect run statistics        
+        results.append(stats)     
+    
+    return _process_results(results, best, max_iterations, runs)
+
+# LLM Prompt: Introduce a new run_mls_parallel function that runs the for-loop in run_mls function in parallel.
+def run_mls_parallel(max_iterations=10000, runs:int=10, graph_file="Graph500.txt"):   
+        global max_iter
+        global graph_filename        
+        graph_filename = graph_file
+        max_iter = max_iterations
         
         with Pool() as pool:
             results_list = pool.map(single_run, range(runs))
@@ -127,22 +132,7 @@ def run_mls_parallel(max_iterations=10000, runs:int=10):
         best_cuts, results = zip(*results_list)
         best = min(best_cuts)
         
-        avg_best_cut_size = statistics.mean([r['best_cut_size'] for r in results])    
-        avg_time_elapsed = statistics.mean([r['time_elapsed'] for r in results])
-        
-        summary = {"Algorithm":"MLS", 
-                   "runs": runs,
-                   "mutation_size": "N/A",
-                   "max_iterations": max_iterations,      
-                   "best_cut": best,         
-                   "avg_best_cut_size": avg_best_cut_size, 
-                   "avg_time_elapsed": avg_time_elapsed}
-        results = list(results)
-        results.append(summary)
-        
-        experiment_name = f"MLS-parallel-runs_{runs}-max_iterations_{max_iterations}-best_cut_{round(avg_best_cut_size, 2)}-time_{round(avg_time_elapsed, 3)}"
-        utils.save_as_pickle(results, experiment_name)
-        return best, avg_best_cut_size, results
+        return _process_results(results, best, max_iterations, runs,"MLS-parallel")
 
 # if __name__ == "__main__":
 #     best, avg_best_cut_size, results = run_mls_parallel(max_iterations=20, runs=10)
