@@ -1,91 +1,149 @@
+import time
 import fm_impl as fm
 from graph import Graph
-import json
-import datetime
-import os
 import statistics
-from ils import ILS
-import pickle
-
+import utils
+from multiprocessing import Pool
 
 # Create a graph from a file
 # Create experiment_results directory if it doesn't exist
-os.makedirs('./experiment_results', exist_ok=True)
-    
-def load_graph():
-    return Graph("Graph500.txt")
+#os.makedirs('./experiment_results', exist_ok=True)
 
-def run_mls(runs=10000)->list[dict]:
-    graph = load_graph()    
-    results = []
+class MLS:
     
-    for _ in range(runs):
-        #Initialize a new random solution.
-        graph.set_random_solution()        
-        fm_impl = fm.FM(graph)
-        fm_impl.run_fm()
-        stats = fm_impl.get_run_statistics()        
-        results.append(stats)
+    def __init__(self, graph_file="Graph500.txt", max_iterations=1000,random_seed=None):
+        self.graph_file = graph_file
+        self.max_iterations = max_iterations
+        self.random_seed = random_seed   
+        self.best_cut_size = 1000000
+        self.cut_sizes = []
+        self.best_cut_sizes = []
+        self.results = []     
+        pass
 
-    export_results(results, "MLS", f"{runs}")
-    return results
+    def __load_graph(self)->Graph:
+        return Graph(self.graph_file)
 
-def export_results(results:list[dict], exp_name:str, suffix:str):
-    # LLM prompt: serialize the results as json to a file. File name format is yyyy-mm-dd_HH-MM-SS_MLS.txt
-    # Generate filename with current timestamp
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    #filename = f'./experiment_results/{timestamp}_{exp_name}_{suffix}.txt'
-    # # Write results to file
-    # with open(filename, 'w') as f:
-    #     # Custom JSON encoder to keep lists on single lines
-    #     json_str = json.dumps(results, indent=4)                
-    #     f.write(json_str)    
-    
-    filename = f'./experiment_results/{timestamp}_{exp_name}_{suffix}.pkl'
-    with open(filename, 'wb') as f:
-        pickle.dump(results, f)
+    def run_single(self)->tuple[dict, list[dict]]:
+        graph = self.__load_graph()    
         
-def summarize_results_mls(results:list[dict]):
-    # This is the content of the each dictionary in the results list:
-    # "fm_runs": number of runs until convergence,
-    # "run_times": a list of the run times of each run,
-    # "total_elapsed": total time elapsed,
-    # "average_elapsed": average time elapsed,
-    # "cut_size": best cut size found,
-    # "partition_1": a list of node ids in partition 1,
-    # "partition_2": a list of node ids in partition 2,
-    # "initial_cut_size": initial cut size
-    
-    # LLM Prompt: Summarize the results. Return a dictionary with the following keys:
-    # "Average Runs": average number of runs until convergence,
-    # "Average Elapsed (full FM)": average time elapsed (average of total_elapsed),
-    # "Average Elapsed (single run)": average time elapsed (average of run_times),
-    # "Average Cut Size": average cut_size found,
-    # "Best Cut Size": best cut size (minimum cut_size),
-    # "Worst Cut Size": worst cut size (maximum cut_size),
-    # "Average Initial Cut Size": average initial_cut_size
-    # "Best Initial Cut Size": best initial cut (minimum initial_cut_size)
-    # "Worst Initial Cut Size": worst initial cut (maximum initial_cut_size)
-    summary = {
-        "Total Runs": len(results),
-        "Average Runs": statistics.mean(r['fm_runs'] for r in results),
-        "Average Elapsed (full FM)": statistics.mean(r['total_elapsed'] for r in results),
-        "Stdev Elapsed (full FM)": statistics.stdev(r['total_elapsed'] for r in results),
-        #"Average Elapsed (single run)": statistics.mean(sum(r['run_times']) / len(r['run_times']) for r in results),
-        "Total Elapsed": sum(r['total_elapsed'] for r in results),
-        "Average Cut Size": statistics.mean(r['cut_size'] for r in results),
-        "Best Cut Size": min(r['cut_size'] for r in results),
-        "Worst Cut Size": max(r['cut_size'] for r in results),
-        "Average Initial Cut Size": statistics.mean(r['initial_cut'] for r in results),
-        "Best Initial Cut Size": min(r['initial_cut'] for r in results),
-        "Worst Initial Cut Size": max(r['initial_cut'] for r in results)
-    }
-    
-    return summary
+        for _ in range(self.max_iterations):
+            #Initialize a new random solution.
+            graph.set_random_solution(self.random_seed)    
+            #Run FM       
+            fm_impl = fm.FM(graph)
+            cut_size = fm_impl.run_fm()
+            #Store the results
+            self.cut_sizes.append(cut_size)
+            stats = fm_impl.get_run_statistics()        
+            self.results.append(stats)            
+            if cut_size < self.best_cut_size:
+                self.best_cut_size = cut_size
+                self.best_cut_sizes.append(cut_size)
 
-def deserialize_results(filename)->list[dict]:
-    #LLM Prompt: Deserialize the results from the file and return the list of dictionaries
-    with open (filename, 'r') as f:
-        data = json.load(f)
-        return [dict(item) for item in data]
+        return self.best_cut_size
+
+    def get_run_statistics(self)->dict:
+        # Return a summary
+        results = self.results
+        total_time = sum(r['total_elapsed'] for r in results)
+        avg_per_fm = statistics.mean(r['total_elapsed'] for r in results)
+        initial_cut_values = [item["initial_cut"] for item in results]
+        
+        return {
+            "max_iterations": self.max_iterations,
+            "n_iterations": len(results),  
+            "best_cut_size": self.best_cut_size,
+            "time_elapsed": total_time,
+            "avg_cut_size": statistics.mean(self.cut_sizes),
+            "avg_best_cut_size": statistics.mean(self.best_cut_sizes),                
+            "n_stays_in_local_optimum": "N/A",    
+            "initial_cut_size_avg": statistics.mean(initial_cut_values),
+            "initial_cut_size_best": min(initial_cut_values),
+            "avg_time_per_fm": avg_per_fm
+        }
     
+def run_mls(max_iterations=10000, runs:int=10):    
+    results = []    
+    best = 1000000
+    
+    for i in range(runs):
+        mls = MLS(
+            graph_file="Graph500.txt", 
+            max_iterations=max_iterations,            
+            random_seed=utils.generate_random_seed()
+        )
+        
+        # 2 Run ILS
+        start = time.time()
+        best_cut = mls.run_single()   
+        elapsed = round(time.time() - start, 3)
+        
+        if best_cut < best:     
+            best = best_cut
+        # 3 Collect run statistics
+        stats = mls.get_run_statistics()        
+        results.append(stats)        
+        print(f"MLS - {i}. Best Cut: {best_cut}. Elapsed: {elapsed}.")        
+    
+    #get the average best_cut_size from the results
+    avg_best_cut_size = statistics.mean([r['best_cut_size'] for r in results])    
+    #get the average time elapsed from the results
+    avg_time_elapsed = statistics.mean([r['time_elapsed'] for r in results])
+    #Insert both metrics into results
+    summary = {"Algorithm":"MLS", 
+               "runs": runs,
+               "mutation_size": "N/A",
+               "max_iterations": max_iterations,      
+               "best_cut": best,
+               "avg_best_cut_size": avg_best_cut_size, 
+               "avg_time_elapsed": avg_time_elapsed}
+    results.append(summary)
+    
+    experiment_name = f"MLS-runs_{runs}-max_iterations_{max_iterations}-best_cut_{round(avg_best_cut_size, 2)}-time_{round(avg_time_elapsed, 3)}"
+    utils.save_as_pickle(results, experiment_name)
+    return best, avg_best_cut_size,results
+
+def single_run(i):
+        mls = MLS(
+            graph_file="Graph500.txt", 
+            max_iterations=20,            
+            random_seed=utils.generate_random_seed()
+        )
+        
+        start = time.time()
+        best_cut = mls.run_single()   
+        elapsed = round(time.time() - start, 3)
+        
+        stats = mls.get_run_statistics()        
+        print(f"MLS - {i}. Best Cut: {best_cut}. Elapsed: {elapsed}.")        
+        return best_cut, stats
+        
+def run_mls_parallel(max_iterations=10000, runs:int=10):   
+        
+        with Pool() as pool:
+            results_list = pool.map(single_run, range(runs))
+        
+        best_cuts, results = zip(*results_list)
+        best = min(best_cuts)
+        
+        avg_best_cut_size = statistics.mean([r['best_cut_size'] for r in results])    
+        avg_time_elapsed = statistics.mean([r['time_elapsed'] for r in results])
+        
+        summary = {"Algorithm":"MLS", 
+                   "runs": runs,
+                   "mutation_size": "N/A",
+                   "max_iterations": max_iterations,      
+                   "best_cut": best,         
+                   "avg_best_cut_size": avg_best_cut_size, 
+                   "avg_time_elapsed": avg_time_elapsed}
+        results = list(results)
+        results.append(summary)
+        
+        experiment_name = f"MLS-parallel-runs_{runs}-max_iterations_{max_iterations}-best_cut_{round(avg_best_cut_size, 2)}-time_{round(avg_time_elapsed, 3)}"
+        utils.save_as_pickle(results, experiment_name)
+        return best, avg_best_cut_size, results
+
+# if __name__ == "__main__":
+#     best, avg_best_cut_size, results = run_mls_parallel(max_iterations=20, runs=10)
+#     pass
