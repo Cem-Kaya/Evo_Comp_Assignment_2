@@ -156,26 +156,34 @@ class ILS:
             #"iteration_log": self.iteration_data,
             "n_stays_in_local_optimum": self.n_stays_in_local_optimum
         }
-        
+
+def run_single_ils(mutation_size:int, max_iterations=10000, random_seed=None):
+    # 1 Instantiate with desired parameters
+    ils = ILS(
+        graph_filename="Graph500.txt", 
+        max_iterations=max_iterations,    # 
+        mutation_size=mutation_size,       # 
+        random_seed=random_seed
+    )
+    
+    # 2 Run ILS
+    best_cut = ils.run_ils()   
+    
+    # 3 Collect run statistics
+    stats = ils.get_run_statistics() 
+    print(f"ILS - Mutation Size: {mutation_size}. Best Cut: {best_cut}.")        
+    
+    return best_cut, stats 
+    
 def run_ils(mutation_size:int, max_iterations=10000, runs:int=10):
     
     results = []    
-    best = 501
+    best = 10000000
     
     for i in range(runs):
-        ils = ILS(
-            graph_filename="Graph500.txt", 
-            max_iterations=max_iterations,    # 
-            mutation_size=mutation_size,       # 
-            random_seed=utils.generate_random_seed()
-        )
-        
-        # 2 Run ILS
-        best_cut = ils.run_ils()   
+        best_cut, stats = run_single_ils(mutation_size, max_iterations)       
         if best_cut < best:     
-            best = best_cut
-        # 3 Collect run statistics
-        stats = ils.get_run_statistics()        
+            best = best_cut                
         results.append(stats)        
         print(f"ILS -{i}- Mutation Size: {mutation_size}. Best Cut: {best_cut}.")        
     
@@ -197,37 +205,35 @@ def run_ils(mutation_size:int, max_iterations=10000, runs:int=10):
     utils.save_as_pickle(results, experiment_name)
     return best, avg_best_cut_size,results
 
-if __name__ == "__main__":
-    # 1 Instantiate with desired parameters
-    random_seed = utils.generate_random_seed()
-    max_iteration_size = 250
+def run_ils_parallel(mutation_size:int, max_iterations=10000, runs:int=10):
+    # Parallel run of ILS
+    from concurrent.futures import ProcessPoolExecutor
     
-    for m in [1, 2, 5, 7, 10, 15 ,20, 30, 50, 100]:
-        ils = ILS(
-            graph_filename="Graph500.txt", 
-            max_iterations=max_iteration_size,    # 
-            mutation_size=m,       # 
-            random_seed=random_seed
-        )
-        
-        # 2 Run ILS
-        best_cut = ils.run_ils()
-        
-        # 3 Collect run statistics
-        stats = ils.get_run_statistics()
-        
-        print(f"ILS best cut size for mutation size of :{m} found: {best_cut}")
-        break
-        
-        
-        
-        
-        
-    #print("---- Summary ----")
-    for k, v in stats.items():
-        pass#print(f"{k}: {v}")
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(run_single_ils, mutation_size, max_iterations) for _ in range(runs)]
+        results_list = [future.result() for future in futures]
+    
+    best_cuts, results = zip(*results_list)
+    results = list(results)
+    
+    best = min(best_cuts)
+    avg_best_cut_size = statistics.mean(result['best_cut_size'] for result in results)
+    avg_time_elapsed = statistics.mean(result['time_elapsed'] for result in results)
+    
+    summary = {"Algorithm":"ILS", 
+               "runs": runs,
+               "mutation_size": mutation_size,
+               "max_iterations": max_iterations,      
+               "best_cut": best,        
+               "avg_best_cut_size": avg_best_cut_size, 
+               "avg_time_elapsed": avg_time_elapsed}
+    results.append(summary)
+    
+    experiment_name = f"ILS-mutation_{mutation_size}-runs_{runs}-max_iterations_{max_iterations}-best_cut_{round(avg_best_cut_size, 2)}-time_{round(avg_time_elapsed, 3)}"
+    utils.save_as_pickle(results, experiment_name)
+    
+    return best, avg_best_cut_size,results
 
-
-
-
-
+if __name__ == "__main__":
+    run_ils_parallel(20, max_iterations=20, runs=10)
+    pass
