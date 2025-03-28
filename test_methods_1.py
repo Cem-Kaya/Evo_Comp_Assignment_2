@@ -2,6 +2,9 @@ import graph as g
 import node as n
 from node_linked import LinkedNode
 from fm_impl import FM
+import utils
+import pandas as pd
+from scipy import stats
 
 def test_load_graph():
     # LLM prompt: load the file parse it line by line. each line is space-separated.
@@ -506,4 +509,54 @@ def _check_bucket_contents(fm:FM, expected_left:list, expected_right:list, max:i
         if item is not None:
             for node in item.to_list():
                 bucket.append(node.id)
-    assert bucket == expected_right   
+    assert bucket == expected_right  
+    
+def test_significance():
+    """This method tests the implementation of mann-whitney U test. 
+    For testing we calculate one sample from recorded data manually and test against api.
+    """
+    filename="pckl/ils_find_mutation_size/2025-03-26_02-53-50_ILS-mutation_70-runs_10-max_iterations_10000-best_cut_8.8-time_444.173.pkl"
+    results_70 = utils.load_pickle(filename)
+    #print(results)
+
+    filename="pckl/ils_find_mutation_size/2025-03-26_01-39-48_ILS-mutation_60-runs_10-max_iterations_10000-best_cut_7.2-time_439.55.pkl"
+    results_60 = utils.load_pickle(filename)
+
+    columns = ['best_cut_size', 'time_elapsed', 'n_stays_in_local_optimum']
+    df_60 = pd.DataFrame(results_60, columns=columns)    
+    df_70 = pd.DataFrame(results_70, columns=columns)
+
+    cut_60 = list(df_60['best_cut_size'])[:-1]
+    cut_70 = list(df_70['best_cut_size'])[:-1]
+    # Create DataFrames for each group
+    df1 = pd.DataFrame({'Best Cut': cut_60, 'mutation_size': 60})
+    df2 = pd.DataFrame({'Best Cut': cut_70, 'mutation_size': 70})
+
+    # Concatenate vertically and sort
+    df_merged = pd.concat([df1, df2])#.sort_values('Best Cut')
+    # LLM prompt:add a new column rank to df_merged. give a rank to each Best Cut starting from 1. If the Best Cut value is same, then rank is same. the dataframe is already sorted.
+    # Add rank column starting from 1, with ties assigned the same rank
+    # NOTE: LLM used min by default, we changed to average. 
+    df_merged['rank'] = df_merged['Best Cut'].rank(method='average')
+    
+    rank_sum_60 = df_merged[df_merged['mutation_size'] == 60]['rank'].sum()
+    rank_sum_70 = df_merged[df_merged['mutation_size'] == 70]['rank'].sum()
+    
+    assert len(cut_60) == len(cut_70)
+    n = len(cut_60)
+    u_val_60 = rank_sum_60 - n*(n+1)/2
+    u_val_70 = rank_sum_70 - n*(n+1)/2
+    min_u = min(u_val_60, u_val_70)
+    # if alpha = 0.05 and n = 1-, the critical U value is 23
+    u_crit = 23
+    # For the difference being statistically significant, the min U value must be less than critical value.
+    # If less, we reject the null hypothesis (rank means are not different.)
+    # In our case the difference is not statistically significant.
+    assert min_u > u_crit, "The difference is not to be expected to be statistically significant."
+    print(f"The cut size difference between mutation size 60 and 70 is statistically significant.")
+    
+    # Perform Mann-Whitney U test
+    statistic, p_value = utils.perform_mann_whitney_u_test(cut_60,cut_70)
+    assert statistic == min_u # make sure that the calculated statistics value is same.
+    assert p_value > 0.05, "The difference is not expected to be statistically significant"
+    pass

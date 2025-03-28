@@ -4,6 +4,9 @@ import statistics
 import utils
 from fm_impl import FM
 from graph import Graph
+import os
+import pandas as pd
+import numpy as np
 
 class ILS:
     """
@@ -156,26 +159,34 @@ class ILS:
             #"iteration_log": self.iteration_data,
             "n_stays_in_local_optimum": self.n_stays_in_local_optimum
         }
-        
+
+def run_single_ils(mutation_size:int, max_iterations=10000, random_seed=None):
+    # 1 Instantiate with desired parameters
+    ils = ILS(
+        graph_filename="Graph500.txt", 
+        max_iterations=max_iterations,    # 
+        mutation_size=mutation_size,       # 
+        random_seed=random_seed
+    )
+    
+    # 2 Run ILS
+    best_cut = ils.run_ils()   
+    
+    # 3 Collect run statistics
+    stats = ils.get_run_statistics() 
+    print(f"ILS - Mutation Size: {mutation_size}. Best Cut: {best_cut}.")        
+    
+    return best_cut, stats 
+    
 def run_ils(mutation_size:int, max_iterations=10000, runs:int=10):
     
     results = []    
-    best = 501
+    best = 10000000
     
     for i in range(runs):
-        ils = ILS(
-            graph_filename="Graph500.txt", 
-            max_iterations=max_iterations,    # 
-            mutation_size=mutation_size,       # 
-            random_seed=utils.generate_random_seed()
-        )
-        
-        # 2 Run ILS
-        best_cut = ils.run_ils()   
+        best_cut, stats = run_single_ils(mutation_size, max_iterations)       
         if best_cut < best:     
-            best = best_cut
-        # 3 Collect run statistics
-        stats = ils.get_run_statistics()        
+            best = best_cut                
         results.append(stats)        
         print(f"ILS -{i}- Mutation Size: {mutation_size}. Best Cut: {best_cut}.")        
     
@@ -197,37 +208,132 @@ def run_ils(mutation_size:int, max_iterations=10000, runs:int=10):
     utils.save_as_pickle(results, experiment_name)
     return best, avg_best_cut_size,results
 
-if __name__ == "__main__":
-    # 1 Instantiate with desired parameters
-    random_seed = utils.generate_random_seed()
-    max_iteration_size = 250
+def run_ils_parallel(mutation_size:int, max_iterations=10000, runs:int=10):
+    # Parallel run of ILS
+    from concurrent.futures import ProcessPoolExecutor
     
-    for m in [1, 2, 5, 7, 10, 15 ,20, 30, 50, 100]:
-        ils = ILS(
-            graph_filename="Graph500.txt", 
-            max_iterations=max_iteration_size,    # 
-            mutation_size=m,       # 
-            random_seed=random_seed
-        )
-        
-        # 2 Run ILS
-        best_cut = ils.run_ils()
-        
-        # 3 Collect run statistics
-        stats = ils.get_run_statistics()
-        
-        print(f"ILS best cut size for mutation size of :{m} found: {best_cut}")
-        break
-        
-        
-        
-        
-        
-    #print("---- Summary ----")
-    for k, v in stats.items():
-        pass#print(f"{k}: {v}")
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(run_single_ils, mutation_size, max_iterations) for _ in range(runs)]
+        results_list = [future.result() for future in futures]
+    
+    best_cuts, results = zip(*results_list)
+    results = list(results)
+    
+    best = min(best_cuts)
+    avg_best_cut_size = statistics.mean(result['best_cut_size'] for result in results)
+    avg_time_elapsed = statistics.mean(result['time_elapsed'] for result in results)
+    
+    summary = {"Algorithm":"ILS", 
+               "runs": runs,
+               "mutation_size": mutation_size,
+               "max_iterations": max_iterations,      
+               "best_cut": best,        
+               "avg_best_cut_size": avg_best_cut_size, 
+               "avg_time_elapsed": avg_time_elapsed}
+    results.append(summary)
+    
+    experiment_name = f"ILS-mutation_{mutation_size}-runs_{runs}-max_iterations_{max_iterations}-best_cut_{round(avg_best_cut_size, 2)}-time_{round(avg_time_elapsed, 3)}"
+    utils.save_as_pickle(results, experiment_name)
+    
+    return best, avg_best_cut_size,results
 
+def analyze_ils_performance(pickle_folder:str, additional_files:list[str]=None)->pd.DataFrame:
+    """Load the ILS experiment results from the pickle files in the given folder (plus any additional files),
+    and return a dataframe with the average cut size and mutation size.
+    The dataframe will be sorted by mutation size.
 
+    Args:
+        pickle_folder (str): The folder containing the ILS results (.pkl files only).
+        additional_files (list[str], optional): Any additional ILS results. Defaults to None.
 
+    Returns:
+        pd.DataFrame: A dataframe with 3 columns: mutation size, average cut size, and average stays in local optimum.
+    The dataframe will be sorted by mutation size.
+    """
+    # Load all ILS experiment results from pickle files
+    data = []
+    
+    #LLM Prompt: Iterate over the given files in the folder and load the results from each file. Use utils.load_ils_results_from_pickle method.
+    files = os.listdir(pickle_folder)
+    if additional_files:
+        files.extend(additional_files)    
+    for file in sorted(files):
+        if file.endswith('.pkl'):
+            file_path = os.path.join(pickle_folder, file)
+            results = utils.load_ils_results_from_pickle(file_path)[1]
+            mutation_size = results[0]['mutation_size']
+            mean_cut = statistics.mean([r['best_cut_size'] for r in results])
+            mean_stays = statistics.mean([r['n_stays_in_local_optimum'] for r in results])
+            data.append([mutation_size, mean_cut, mean_stays])
+            
+            #results_list.append(results[1])
+    columns = ['Mutation Size', 'Average Cut Size', 'Stays in Local Optimum']
+    df = pd.DataFrame(data=data, columns=columns).sort_values('Mutation Size')
+    return df
 
+def compare_results(files:list[str]):    
+    expriment_results = {}
+    for file in sorted(files):
+        if file.endswith('.pkl'):
+            results = utils.load_ils_results_from_pickle(file)
+            #The summary is the first element of the results.
+            algorithm = results[0]['Algorithm']
+            mutation_size = results[0]['mutation_size']
+            experiment_key = f"{algorithm}-[{mutation_size}]"
+            if mutation_size == "N/A":
+                experiment_key = algorithm
+            results = results[1]# get the details
+            expriment_results[experiment_key] = results #store the results of experiment.
+    
+    # Sort the dictionary by keys
+    expriment_results = dict(sorted(expriment_results.items()))    
 
+    #LLM prompt: sort the experiment_results by key. after sorting reinsert the item with key 'MLS' to the beginning.
+    # If MLS exists, move it to beginning    
+    if 'MLS' in expriment_results:
+        mls_value = expriment_results.pop('MLS')
+        expriment_results = {'MLS': mls_value, **expriment_results}
+    
+    experiment_names  = list(expriment_results.keys())
+    experiment_values = list(expriment_results.values())
+    # Initialize matrix of size len(experiment_names) x len(experiment_names)
+    data = np.full((len(experiment_names), len(experiment_names)), np.nan)
+    means = np.full(len(experiment_names), np.nan)
+    for i in range(len(experiment_names)):
+        #name1 = experiment_names[i]
+        res1 = experiment_values[i]
+        cuts1 = [r['best_cut_size'] for r in res1]
+        mean1 = statistics.mean(cuts1)
+        means[i] = mean1
+        data[i][i] = np.float64(1) #p_value is 1.0 for same data.
+        
+        for j in range(i + 1,len(experiment_names)):
+            #name2 = experiment_names[j]
+            res2 = experiment_values[j]
+            cuts2 = [r['best_cut_size'] for r in res2]
+            #Run the statistical significance test
+            _, pvalue = utils.perform_mann_whitney_u_test(cuts1, cuts2)
+            data[i][j] = pvalue
+            #data[j][i] = pvalue
+        #break     
+    
+    columns = experiment_names
+    #LLM prompt: insert the means array as first column to data.    
+    data = np.column_stack((means, data))
+    # Add 'Mean' to column names at the beginning
+    columns = ['Avg Cut Size'] + columns
+    df = pd.DataFrame(data=data, columns=columns)
+    df.index = experiment_names
+    #df = df.round(3)
+    return df
+
+if __name__ == "__main__":
+    #run_ils_parallel(20, max_iterations=20, runs=10)
+    folder = "pckl/ils_find_mutation_size"
+    files = os.listdir(folder)
+    for i in range(len(files)):
+        files[i] = os.path.join(folder, files[i])    
+    files = sorted(files)
+    files.insert(0, "pckl/2025-03-26_17-46-39_MLS-runs_10-max_iterations_10000-best_cut_27.8-time_439.552.pkl")
+    df = compare_results(files)
+    pass
