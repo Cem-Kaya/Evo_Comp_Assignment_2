@@ -1,6 +1,6 @@
 from node import Node
 
-#Frst LLM prompt to generate the class skeletion:generate a LinkedNode class. inherit from Node class. It needs next and previous properties.
+#LLM prompt: to generate the class skeletion:generate a LinkedNode class. inherit from Node class. It needs next and previous properties.
 #We adjusted the rest manually.
 
 class LinkedNode(Node):

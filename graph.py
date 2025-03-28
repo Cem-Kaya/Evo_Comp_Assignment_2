@@ -34,15 +34,6 @@ class Graph:
                         self.nodes[neighbor_id] = LinkedNode(neighbor_id)  # No coordinates available
 
                     self.nodes[node_id].add_neighbor(neighbor_id)
-                    #13.03.2025 MS: The line below duplicates the neighbor array of current node. 
-                    #Say, current node is node 1 and it has a neighbor 2. 
-                    #The line below will add 1 to the neighbor array of node 2.
-                    #When the current node is 2, the line below will add 2 to the neighbor array of node 1.
-                    #So the 'node 1' will have 'node 2' twice in the neighbor array. 
-                    #We don't need this line, because we assume that given graph dataset is correct.
-                    #If the dataset is correct, each node will update its neighbors array and the graph will be undirected.
-                    #There is a test case to check if the graph is undirected.
-                    #self.nodes[neighbor_id].add_neighbor(node_id)  # Undirected graph
     
     def get_cut_size(self):
         #Computes the number of edges that cross partitions

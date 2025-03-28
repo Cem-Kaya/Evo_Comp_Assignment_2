@@ -1,0 +1,172 @@
+Running ILS with mutation size:  10 . Trial:  1
+ILS -0- Mutation Size: 10. Best Cut: 29.
+ILS -1- Mutation Size: 10. Best Cut: 23.
+ILS -2- Mutation Size: 10. Best Cut: 25.
+ILS -3- Mutation Size: 10. Best Cut: 29.
+ILS -4- Mutation Size: 10. Best Cut: 30.
+ILS -5- Mutation Size: 10. Best Cut: 24.
+ILS -6- Mutation Size: 10. Best Cut: 21.
+ILS -7- Mutation Size: 10. Best Cut: 21.
+ILS -8- Mutation Size: 10. Best Cut: 48.
+ILS -9- Mutation Size: 10. Best Cut: 20.
+Finished. Cut size:  27 . Is better:  True
+Elapsed Time:  8333.888215065002
+--------------------------------------------
+Running ILS with mutation size:  20 . Trial:  2
+ILS -0- Mutation Size: 20. Best Cut: 11.
+ILS -1- Mutation Size: 20. Best Cut: 21.
+ILS -2- Mutation Size: 20. Best Cut: 35.
+ILS -3- Mutation Size: 20. Best Cut: 21.
+ILS -4- Mutation Size: 20. Best Cut: 19.
+ILS -5- Mutation Size: 20. Best Cut: 31.
+ILS -6- Mutation Size: 20. Best Cut: 18.
+ILS -7- Mutation Size: 20. Best Cut: 26.
+ILS -8- Mutation Size: 20. Best Cut: 20.
+ILS -9- Mutation Size: 20. Best Cut: 30.
+Finished. Cut size:  23.2 . Is better:  True
+Elapsed Time:  4167.392366886139
+--------------------------------------------
+Running ILS with mutation size:  30 . Trial:  3
+ILS -0- Mutation Size: 30. Best Cut: 11.
+ILS -1- Mutation Size: 30. Best Cut: 12.
+ILS -2- Mutation Size: 30. Best Cut: 17.
+ILS -3- Mutation Size: 30. Best Cut: 13.
+ILS -4- Mutation Size: 30. Best Cut: 13.
+ILS -5- Mutation Size: 30. Best Cut: 21.
+ILS -6- Mutation Size: 30. Best Cut: 15.
+ILS -7- Mutation Size: 30. Best Cut: 14.
+ILS -8- Mutation Size: 30. Best Cut: 13.
+ILS -9- Mutation Size: 30. Best Cut: 12.
+Finished. Cut size:  14.1 . Is better:  True
+Elapsed Time:  4218.765734910965
+--------------------------------------------
+Running ILS with mutation size:  40 . Trial:  4
+ILS -0- Mutation Size: 40. Best Cut: 10.
+ILS -1- Mutation Size: 40. Best Cut: 14.
+ILS -2- Mutation Size: 40. Best Cut: 8.
+ILS -3- Mutation Size: 40. Best Cut: 13.
+ILS -4- Mutation Size: 40. Best Cut: 16.
+ILS -5- Mutation Size: 40. Best Cut: 5.
+ILS -6- Mutation Size: 40. Best Cut: 19.
+ILS -7- Mutation Size: 40. Best Cut: 20.
+ILS -8- Mutation Size: 40. Best Cut: 11.
+ILS -9- Mutation Size: 40. Best Cut: 12.
+Finished. Cut size:  12.8 . Is better:  True
+Elapsed Time:  4295.961247205734
+--------------------------------------------
+Running ILS with mutation size:  50 . Trial:  5
+ILS -0- Mutation Size: 50. Best Cut: 6.
+ILS -1- Mutation Size: 50. Best Cut: 9.
+ILS -2- Mutation Size: 50. Best Cut: 7.
+ILS -3- Mutation Size: 50. Best Cut: 14.
+ILS -4- Mutation Size: 50. Best Cut: 9.
+ILS -5- Mutation Size: 50. Best Cut: 5.
+ILS -6- Mutation Size: 50. Best Cut: 7.
+ILS -7- Mutation Size: 50. Best Cut: 5.
+ILS -8- Mutation Size: 50. Best Cut: 5.
+ILS -9- Mutation Size: 50. Best Cut: 9.
+Finished. Cut size:  7.6 . Is better:  True
+Elapsed Time:  4353.7663831710815
+--------------------------------------------
+Running ILS with mutation size:  60 . Trial:  6
+ILS -0- Mutation Size: 60. Best Cut: 8.
+ILS -1- Mutation Size: 60. Best Cut: 3.
+ILS -2- Mutation Size: 60. Best Cut: 5.
+ILS -3- Mutation Size: 60. Best Cut: 7.
+ILS -4- Mutation Size: 60. Best Cut: 13.
+ILS -5- Mutation Size: 60. Best Cut: 7.
+ILS -6- Mutation Size: 60. Best Cut: 8.
+ILS -7- Mutation Size: 60. Best Cut: 5.
+ILS -8- Mutation Size: 60. Best Cut: 9.
+ILS -9- Mutation Size: 60. Best Cut: 7.
+Finished. Cut size:  7.2 . Is better:  True
+Elapsed Time:  4395.551902770996
+--------------------------------------------
+Running ILS with mutation size:  70 . Trial:  7
+ILS -0- Mutation Size: 70. Best Cut: 2.
+ILS -1- Mutation Size: 70. Best Cut: 9.
+ILS -2- Mutation Size: 70. Best Cut: 9.
+ILS -3- Mutation Size: 70. Best Cut: 8.
+ILS -4- Mutation Size: 70. Best Cut: 9.
+ILS -5- Mutation Size: 70. Best Cut: 9.
+ILS -6- Mutation Size: 70. Best Cut: 12.
+ILS -7- Mutation Size: 70. Best Cut: 6.
+ILS -8- Mutation Size: 70. Best Cut: 12.
+ILS -9- Mutation Size: 70. Best Cut: 12.
+Finished. Cut size:  8.8 . Is better:  False
+Elapsed Time:  4441.778317689896
+--------------------------------------------
+Running ILS with mutation size:  80 . Trial:  8
+ILS -0- Mutation Size: 80. Best Cut: 10.
+ILS -1- Mutation Size: 80. Best Cut: 11.
+ILS -2- Mutation Size: 80. Best Cut: 13.
+ILS -3- Mutation Size: 80. Best Cut: 12.
+ILS -4- Mutation Size: 80. Best Cut: 5.
+ILS -5- Mutation Size: 80. Best Cut: 13.
+ILS -6- Mutation Size: 80. Best Cut: 12.
+ILS -7- Mutation Size: 80. Best Cut: 16.
+ILS -8- Mutation Size: 80. Best Cut: 14.
+ILS -9- Mutation Size: 80. Best Cut: 9.
+Finished. Cut size:  11.5 . Is better:  False
+Elapsed Time:  4491.2527821063995
+--------------------------------------------
+Running ILS with mutation size:  90 . Trial:  9
+ILS -0- Mutation Size: 90. Best Cut: 12.
+ILS -1- Mutation Size: 90. Best Cut: 21.
+ILS -2- Mutation Size: 90. Best Cut: 16.
+ILS -3- Mutation Size: 90. Best Cut: 13.
+ILS -4- Mutation Size: 90. Best Cut: 21.
+ILS -5- Mutation Size: 90. Best Cut: 15.
+ILS -6- Mutation Size: 90. Best Cut: 14.
+ILS -7- Mutation Size: 90. Best Cut: 13.
+ILS -8- Mutation Size: 90. Best Cut: 12.
+ILS -9- Mutation Size: 90. Best Cut: 13.
+Finished. Cut size:  15 . Is better:  False
+Elapsed Time:  4542.100327730179
+--------------------------------------------
+Stopping. There is no improvement by incresing mutation size since 2 trials.
+Best mutation size:  60
+Best cut size:  7.2
+Fine tuning ILS with mutation size:  58 . Trial:  9
+ILS -0- Mutation Size: 58. Best Cut: 9.
+ILS -1- Mutation Size: 58. Best Cut: 7.
+ILS -2- Mutation Size: 58. Best Cut: 9.
+ILS -3- Mutation Size: 58. Best Cut: 9.
+ILS -4- Mutation Size: 58. Best Cut: 9.
+ILS -5- Mutation Size: 58. Best Cut: 9.
+ILS -6- Mutation Size: 58. Best Cut: 9.
+ILS -7- Mutation Size: 58. Best Cut: 10.
+ILS -8- Mutation Size: 58. Best Cut: 12.
+ILS -9- Mutation Size: 58. Best Cut: 8.
+Finished. Cut size:  9.1 . Is better:  False
+Elapsed Time:  4395.330192804337
+--------------------------------------------
+Fine tuning ILS with mutation size:  56 . Trial:  9
+ILS -0- Mutation Size: 56. Best Cut: 13.
+ILS -1- Mutation Size: 56. Best Cut: 8.
+ILS -2- Mutation Size: 56. Best Cut: 9.
+ILS -3- Mutation Size: 56. Best Cut: 10.
+ILS -4- Mutation Size: 56. Best Cut: 9.
+ILS -5- Mutation Size: 56. Best Cut: 5.
+ILS -6- Mutation Size: 56. Best Cut: 8.
+ILS -7- Mutation Size: 56. Best Cut: 14.
+ILS -8- Mutation Size: 56. Best Cut: 5.
+ILS -9- Mutation Size: 56. Best Cut: 10.
+Finished. Cut size:  9.1 . Is better:  False
+Elapsed Time:  4394.912905216217
+--------------------------------------------
+Fine tuning ILS with mutation size:  54 . Trial:  9
+ILS -0- Mutation Size: 54. Best Cut: 7.
+ILS -1- Mutation Size: 54. Best Cut: 12.
+ILS -2- Mutation Size: 54. Best Cut: 7.
+ILS -3- Mutation Size: 54. Best Cut: 9.
+ILS -4- Mutation Size: 54. Best Cut: 8.
+ILS -5- Mutation Size: 54. Best Cut: 8.
+ILS -6- Mutation Size: 54. Best Cut: 7.
+ILS -7- Mutation Size: 54. Best Cut: 9.
+ILS -8- Mutation Size: 54. Best Cut: 8.
+ILS -9- Mutation Size: 54. Best Cut: 6.
+Finished. Cut size:  8.1 . Is better:  False
+Elapsed Time:  4398.339901924133
+--------------------------------------------
+Stopping. There is no improvement by increasing mutation size since 2 trials.
