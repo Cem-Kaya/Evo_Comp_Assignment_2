@@ -7,6 +7,9 @@ import pandas as pd
 from scipy import stats
 
 def test_load_graph():
+    """
+    Ensures that the vertices and edges are loaded correctly
+    """
     # LLM prompt: load the file parse it line by line. each line is space-separated.
     # Load Graph500.txt file
     graph_file = "Graph500.txt"
@@ -58,6 +61,8 @@ def test_load_graph():
     
 
 def test_cutsize():
+    """
+    Tests the cut size determination algorithm. Uses a manually crafted graph."""    
     """
 1 (0.1,0.1) 2 2 3
 2 (0.3,0.6) 2 1 3
@@ -127,7 +132,8 @@ def test_cutsize():
     assert cut_size == 1
     
 def test_graph_operations():
-    """This test case is for the graph operations. 
+    """
+    This test case is for the graph operations. 
     It will test the primary node operations like moving a node to the other partition and calculating the gain of a node.
     It is also a mini-simulation of the FM algorithm.
     """
@@ -185,6 +191,10 @@ def test_graph_operations():
     assert graph.is_balanced == False
 
 def test_linked_node():
+    """
+    Test the linked node operations, like setting next and previous nodes,
+    and removing a node from the linked list.
+    """
     node1 = LinkedNode(1)
     node2 = LinkedNode(2)
     node3 = LinkedNode(3)
