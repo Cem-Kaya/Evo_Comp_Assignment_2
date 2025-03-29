@@ -229,6 +229,9 @@ def test_linked_node():
     assert current == None
     
 def test_fm_single_pass():
+    """Tests the FM algorithm for a single pass. It uses a manually crafted graph, with known best solution.
+    The test will check the bucket distribution.
+    """
     #See test_scenario_1.png for the graph.
     #load the test graph
     graph_file = "test_graph1.txt"
@@ -364,6 +367,10 @@ def test_fm_single_pass():
     _check_bucket_contents(fm, expected_bucket_left, expected_bucket_right, max)
 
 def test_fm_run():
+    """
+    Tests the FM algorithm for a full run. It uses a manually crafted graph, with a known best solution.
+    The algorithm is expected to find the best solution.
+    """
     #See test_scenario_1.png for the graph.
     #load the test graph
     graph_file = "test_graph1.txt"
@@ -407,6 +414,10 @@ def test_fm_run():
     assert 6 in partition
     
 def test_edge_case_start_optimal():
+    """
+    Tests the FM algorithm with a starting solution that is already optimal.
+    Expected is the algorithm does not change the solution.
+    """
     graph_file = "test_graph1.txt"
     graph = g.Graph(graph_file)
     
@@ -439,6 +450,11 @@ def test_edge_case_start_optimal():
     assert expected_partition == partition
     
 def test_graph_with_island():
+    """
+    Tests the FM algorithm with a not fully connected graph.
+    It uses a manually crafted graph, with a known best solution.
+    The algorithm is expected to find the best solution.
+    """
     #see test_scenario_2.png for the graph.
     graph_file = "test_graph2.txt"
     graph = g.Graph(graph_file)
@@ -476,6 +492,10 @@ def test_graph_with_island():
     assert expected_partition == partition2
     
 def test_fm_run_500():
+    """
+    Tests the FM algorithm for a full run. It uses the target graph, Graph500.txt.
+    We check the initial cut size and the final cut size. The solution must be balanced as well.
+    """
     #see test_scenario_2.png for the graph.
     graph_file = "Graph500.txt"
     graph = g.Graph(graph_file)
