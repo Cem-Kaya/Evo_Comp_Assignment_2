@@ -1,0 +1,163 @@
+import time
+from ils import ILS
+import numpy as np
+import utils
+
+class AdaptiveILS(ILS):    
+    
+    def __init__(self, graph_filename: str, mutation_operators:list[int], p_min:float, alpha=0.1, beta=0.1 , max_iterations=1000, random_seed=None):
+        """Implementation of the extended version of ILS algorithm with adaptive pursuit.
+        The mutation size is dynamically adapted based on the performance of the operators over time.
+                
+        Args:
+            graph_filename (str): Name of the graph file.
+            mutation_operators (list[int]): A list of candidate mutation sizes.
+            p_min (float): Minimum possible probability for an operator. This is necessary in non-stationary environments, 
+                as it is not desired to have a probability of 0 for an operator.
+            alpha (float, optional): Learning rate for reward estimates. Defaults to 0.1.
+            beta (float, optional): Learning rate for operator probabilities. Defaults to 0.1.
+            max_iterations (int, optional): Number of FM iterations. This values is ignored if the algorithm run in fixed cpu time mode. Defaults to 1000.
+            random_seed (float, optional): For initializing new random partitionings. May be required for reproducability. Defaults to None.
+
+        Raises:
+            ValueError: Raise error if p_min is greater than or equal to 1/K, where K is the number of mutation operators.
+        """
+        super().__init__(graph_filename, max_iterations, -1, random_seed)
+        self.is_adaptive = True
+        self.K = len(mutation_operators) 
+        
+        #check if p_min is correct. It must be less than 1/K
+        if p_min >= 1 / self.K:
+            raise ValueError("p_min must be less than 1/K.")
+        
+        #Initialize probability vector with equal probabilities
+        probability_vector = np.array([1.0 / self.K] * self.K)        
+        #Initialize the reward estimates for each operator. Assign 1.0 to all operators.
+        reward_estimates = np.array([1.0] * self.K)            
+        # Parameters for adaptive mutation size
+        self.mutation_operators = np.zeros((self.K, 3),dtype=object)
+        self.operator_indices = np.full(max(mutation_operators) + 1,dtype=int,fill_value=-1)        
+        for i in range(len(mutation_operators)):
+            self.operator_indices[mutation_operators[i]] = i
+            self.mutation_operators[i] = [mutation_operators[i], probability_vector[i], reward_estimates[i]]            
+        
+        #self.best_operator_history = []        
+        self.reward_history = []
+        self.operator_history = []
+        #self.a_star_history = []
+        #Minimum possible probability for an operator. This is necessary in non-stationary environments.
+        # It is not possible to have a probability of 0 for an operator.
+        self.p_min = p_min         
+        #Maximum possible probability for an operator. In case all others are at p_min.
+        self.p_max = 1 - (self.K - 1)* p_min   
+          
+        #Learning rate for the reward estimates.
+        self.alpha = alpha
+        #Learning rate for the probabilities.
+        self.beta = beta
+        self.track_history = False
+        
+    def _get_mutation_size(self):
+        #Return the operator with the highest probability
+        idx = np.argmax(self.mutation_operators[:, 1])
+        return self.mutation_operators[idx][0] #return the mutation size of the best operator.
+    
+    def _update_mutation_operator(self, mutation_size:int, old_cut:int, new_cut:int):
+        r = old_cut - new_cut #actual reward
+        a = self.mutation_operators[self.operator_indices[mutation_size]] #current operator
+        q = a[2] #current reward estimate        
+        a[2] = 1 + self.alpha * (r - q) #Update the reward estimate of current operator
+        
+        #select the best operator. It is the one with the highest reward estimate.
+        best_index = np.argmax(self.mutation_operators[:, 2])
+        a_star = self.mutation_operators[best_index]
+        # Update the probability of the best operator:
+        # Current probability + [probability learning rate B] * (max - current)
+        # this will increase the probability of the best operator (pursue)
+        a_star[1] = a_star[1] + self.beta * (self.p_max - a_star[1])
+        if self.track_history:
+            self.reward_history.append(r)
+            #self.operator_history.append(np.array(a))
+            #self.a_star_history.append(np.array(a_star))
+            #Append the operator with highest probability to the history
+            #self.best_operator_history.append(np.array(self.mutation_operators[np.argmax(self.mutation_operators[:, 1])])) 
+        
+        #update the probabilities of the other operators
+        for i in range(self.K):
+            if i == best_index:
+                continue # skip the best operator
+            
+            a = self.mutation_operators[i]            
+            # Update the probability of the current operator:
+            # Current probability - [probability learning rate B] * (current - min)
+            # this will decrease the probability of the current operator (penalize)
+            a[1] = a[1] - self.beta * (self.p_min - a[1])
+        
+        if self.track_history:
+            self.operator_history.append(np.array(self.mutation_operators))
+        pass
+
+def _run_adaptive_single(operators, p_min, alpha, beta, max_iterations):    
+    start = time.time()
+    ils = AdaptiveILS("Graph500.txt", operators, p_min, alpha, beta, max_iterations)
+    ils.track_history = True
+    best_cut = ils.run_ils_max_iter(max_iterations=max_iterations)
+    end = time.time()        
+    
+    return best_cut, ils, end - start
+
+def run_parameter_search(operators:list[int], p_mins:list[float], alphas:list[float], betas:list[float], max_iterations:int=2000):
+    """Performs a parameter search for the adaptive ILS algorithm.
+    It runs the algorithm with different combinations of parameters and saves the results.
+    The results are saved in a pickle file.
+    Number of combinations = len(p_mins) * len(alphas) * len(betas)
+    Args:
+        operators (list[int]): Investigated mutation sizes
+        p_mins (list[float]): Investigated minimum probabilities
+        alphas (list[float]): Investigated learning rates for reward estimates
+        betas (list[float]): Investigated learning rates for probabilities
+        max_iterations (int, optional): Number of FM runs. Defaults to 2000.
+    """
+    combinations = []
+    for p_min in p_mins:
+        for alpha in alphas:
+            for beta in betas:
+                combinations.append((p_min,alpha,beta))
+    
+    # Parallel run of ILS
+    from concurrent.futures import ProcessPoolExecutor
+    
+    #LLM Prompt: run the ILS with the parameters in parallel for combinations.
+    with ProcessPoolExecutor() as executor:
+        futures = []
+        for p_min, alpha, beta in combinations:
+            futures.append(executor.submit(_run_adaptive_single, operators, p_min, alpha, beta, max_iterations))
+        results_list = [future.result() for future in futures]
+    
+    results = []
+    for (p_min, alpha, beta), (best_cut, ils, elapsed_time) in zip(combinations, results_list):
+        best_history = [ils.mutation_sizes , ils.best_cuts]
+        res = {"p_min": p_min, "alpha": alpha, "beta": beta, "best_cut": best_cut, "elapsed_time": elapsed_time, "best_operator": ils.mutation_sizes[-1] ,"sizes_cuts":best_history ,"reward_history": ils.reward_history,  "operator_history": ils.operator_history}
+        results.append(res)
+        
+    # for p_min, alpha, beta in combinations:
+    #     best_cut, ils, elapsed_time = _run_adaptive_single(operators, p_min, alpha, beta, max_iterations)
+    #     results[(p_min,alpha,beta)] = (best_cut, elapsed_time, ils._get_mutation_size(), ils.best_operator_history,ils.reward_history)
+        #print(f"Best cut: {best_cut} Time: {elapsed_time:.2f} seconds")
+    #save the results
+    #Result format: (p_min, alpha, beta) : (best_cut, elapsed_time, mutation_size, reward_history, operator_history, best_operator_history, a_star_history)
+    utils.save_as_pickle(results, f"adaptive_ils_parameter_search_iterations-{max_iterations}", folder="./pckl")
+
+
+if __name__ == "__main__":
+    # operators = [30,35,40,45,50,55,60,65,70,75,80,85]
+    # #2000 iterations 86.26 seconds
+    # max_iterations = 20
+    # p_mins = [0.04,0.01,0.001,0.0001]
+    # alphas = [0.1,0.2,0.4,0.6]
+    # betas = [0.1,0.2,0.3,0.5]
+    # print("Running Adaptive ILS with parameter search - parallel...")
+    # results = run_parameter_search(operators=operators, p_mins=p_mins, alphas=alphas, betas=betas, max_iterations=max_iterations)
+    # print("Finished running Adaptive ILS with parameter search.")
+    
+    pass
