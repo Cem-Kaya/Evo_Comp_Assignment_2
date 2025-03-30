@@ -59,20 +59,22 @@ class AdaptiveILS(ILS):
         
     def _get_mutation_size(self):
         #Return the operator with the highest probability
-        idx = np.argmax(self.mutation_operators[:, 1])
+        idx = np.argmax(self.mutation_operators[:, 1]) # The probability of the best operator is at column 1.
         return self.mutation_operators[idx][0] #return the mutation size of the best operator.
     
     def _update_mutation_operator(self, mutation_size:int, old_cut:int, new_cut:int):
         r = old_cut - new_cut #actual reward
-        a = self.mutation_operators[self.operator_indices[mutation_size]] #current operator
-        q = a[2] #current reward estimate        
-        a[2] = 1 + self.alpha * (r - q) #Update the reward estimate of current operator
+        op_index = self.operator_indices[mutation_size] #index of the operator in the mutation_operators array
+        a = self.mutation_operators[op_index] #current operator
+        q = a[2] #current reward estimate: Qa(t)        
+        #Update the reward estimate of current operator, Qas(t+1) = Qas(t) + alpha * (Ras(t) - Qas(t)) 
+        a[2] = q + self.alpha * (r - q) 
         
         #select the best operator. It is the one with the highest reward estimate.
         best_index = np.argmax(self.mutation_operators[:, 2])
         a_star = self.mutation_operators[best_index]
-        # Update the probability of the best operator:
-        # Current probability + [probability learning rate B] * (max - current)
+        # Update the probability of the best operator at Pa*(t+1):
+        # Pa∗ (t + 1) = Pa∗ (t) + β[Pmax − Pa∗ (t)]
         # this will increase the probability of the best operator (pursue)
         a_star[1] = a_star[1] + self.beta * (self.p_max - a_star[1])
         if self.track_history:
@@ -89,9 +91,9 @@ class AdaptiveILS(ILS):
             
             a = self.mutation_operators[i]            
             # Update the probability of the current operator:
-            # Current probability - [probability learning rate B] * (current - min)
-            # this will decrease the probability of the current operator (penalize)
-            a[1] = a[1] - self.beta * (self.p_min - a[1])
+            # Pa(t + 1) = Pa(t) + β[Pmin − Pa(t)]
+            # this will penalize the probability of other operators, to pursue the best operator.
+            a[1] = a[1] + self.beta * (self.p_min - a[1])
         
         if self.track_history:
             self.operator_history.append(np.array(self.mutation_operators))

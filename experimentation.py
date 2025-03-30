@@ -1,5 +1,6 @@
 from ils import ILS
 from ils_adaptive import AdaptiveILS
+import ils_adaptive as ila
 import ils
 import utils
 import statistics
@@ -22,13 +23,7 @@ def run_ils_cpu_time(ils:ILS, max_cpu_time=10*60, target_cut=-1):
     utils.save_as_pickle(results, experiment_name)
     return best_cut, stats
 
-def experiment_adaptive_cpu_time(max_cpu_time=10*60):
-    p_min = 0.001
-    alpha = 0.2
-    beta = 0.1
-    operators = [30,35,40,45,50,55,60,65,70,75,80,85]
-    target_cut = 2
-    
+def experiment_adaptive_cpu_time(operators:list[int],max_cpu_time=10*60,p_min=0.001, alpha=0.1, beta=0.5, target_cut=2):
     print(f"Running Adaptive ILS for {max_cpu_time} seconds...")
     ils = AdaptiveILS("Graph500.txt", operators, p_min, alpha, beta, max_cpu_time)
     ils.track_history = True
@@ -36,6 +31,18 @@ def experiment_adaptive_cpu_time(max_cpu_time=10*60):
     print(f"Adaptive ILS - CPU Time: {max_cpu_time}. Best Cut: {best_cut}.")
     return best_cut, stats
 
+def run_adaptive_ils_param_search():
+    operators = [30,35,40,45,50,55,60,65,70,75,80,85]
+    #2000 iterations 86.26 seconds
+    max_iterations = 2000
+    p_mins = [0.04,0.01,0.001,0.0001]
+    alphas = [0.1,0.2,0.4,0.6]
+    betas = [0.1,0.2,0.3,0.5]
+
+    print("Running Adaptive ILS with parameter search - parallel...")
+    results = ila.run_parameter_search(operators=operators, p_mins=p_mins, alphas=alphas, betas=betas, max_iterations=max_iterations)
+    print("Finished running Adaptive ILS with parameter search.")
+    
 def run_ils(mutation_size:int, max_iterations=10000, runs:int=10):
     
     results = []    
@@ -105,5 +112,5 @@ if __name__ == "__main__":
     # print("Running Adaptive ILS with parameter search - parallel...")
     # results = run_parameter_search(operators=operators, p_mins=p_mins, alphas=alphas, betas=betas, max_iterations=max_iterations)
     # print("Finished running Adaptive ILS with parameter search.")
-    
+    run_adaptive_ils_param_search()
     pass
