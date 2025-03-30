@@ -397,7 +397,7 @@ def compare_results(files:list[str])->pd.DataFrame:
     Args:
         files (list[str]): List of file paths to the experiment results.
     Returns:
-        pd.DataFrame: A dataframe with the p-values of the Mann-Whitney U test between the experiments.
+        pd.DataFrame: A dataframe with the p-values of the Mann-Whitney U test between the experiments and average cut sizes of experiments.
     """    
     expriment_results = {}
     for file in sorted(files):

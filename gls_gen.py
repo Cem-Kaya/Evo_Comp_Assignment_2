@@ -251,12 +251,12 @@ class GLS_GEN:
 if __name__ == "__main__":
   
     pop_sizes_to_test = [6, 10, 20, 50, 100,200, 500] # must be even 
-
+    print(f"Testing population sizes with GLS: {pop_sizes_to_test}")
     for pop_size in pop_sizes_to_test:
         gls = GLS_GEN(
             graph_filename="Graph500.txt",
             pop_size=pop_size,
-            max_iterations=10_000,
+            max_iterations=10000,
             random_seed=42
         )
         best_cut = gls.run_gls()
