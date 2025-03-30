@@ -36,6 +36,8 @@ class AdaptiveILS(ILS):
         reward_estimates = np.array([1.0] * self.K)            
         # Parameters for adaptive mutation size
         self.mutation_operators = np.zeros((self.K, 3),dtype=object)
+        self.min_operator = min(mutation_operators)
+        self.max_operator = max(mutation_operators)
         self.operator_indices = np.full(max(mutation_operators) + 1,dtype=int,fill_value=-1)        
         for i in range(len(mutation_operators)):
             self.operator_indices[mutation_operators[i]] = i
@@ -56,19 +58,37 @@ class AdaptiveILS(ILS):
         #Learning rate for the probabilities.
         self.beta = beta
         self.track_history = False
+        self.use_stage_weight = False
         
     def _get_mutation_size(self):
         #Return the operator with the highest probability
         idx = np.argmax(self.mutation_operators[:, 1]) # The probability of the best operator is at column 1.
         return self.mutation_operators[idx][0] #return the mutation size of the best operator.
     
+    def stage_weight(self,mutation_size):        
+        if(self.max_cpu_time > 0):
+            stage = self.spent_cpu_time/self.max_cpu_time
+        else:
+            stage = self.n_iterations / self.max_iterations
+        # Normalize mutation size to [0,1]
+        norm_size = (mutation_size - self.min_operator) / (self.max_operator - self.min_operator)
+        
+        # Early: favor large (1 - norm_size), Late: favor small (norm_size)
+        weight = (1 - stage) * norm_size + stage * (1 - norm_size)      
+        return weight
+
     def _update_mutation_operator(self, mutation_size:int, old_cut:int, new_cut:int):
         r = old_cut - new_cut #actual reward
         op_index = self.operator_indices[mutation_size] #index of the operator in the mutation_operators array
         a = self.mutation_operators[op_index] #current operator
         q = a[2] #current reward estimate: Qa(t)        
         #Update the reward estimate of current operator, Qas(t+1) = Qas(t) + alpha * (Ras(t) - Qas(t)) 
-        a[2] = q + self.alpha * (r - q) 
+        #a[2] = q + self.alpha * (r - q) 
+        if self.use_stage_weight:
+            stage_weight = self.stage_weight(a[0])
+            a[2] = q + self.alpha * stage_weight * (r - q)
+        else:
+            a[2] = q + self.alpha * (r - q)
         
         #select the best operator. It is the one with the highest reward estimate.
         best_index = np.argmax(self.mutation_operators[:, 2])
@@ -152,14 +172,17 @@ def run_parameter_search(operators:list[int], p_mins:list[float], alphas:list[fl
 
 
 if __name__ == "__main__":
-    # operators = [30,35,40,45,50,55,60,65,70,75,80,85]
+    operators = [30,35,40,45,50,55,60,65,70,75,80,85]
     # #2000 iterations 86.26 seconds
-    # max_iterations = 20
+    max_iterations = 1000
     # p_mins = [0.04,0.01,0.001,0.0001]
     # alphas = [0.1,0.2,0.4,0.6]
     # betas = [0.1,0.2,0.3,0.5]
     # print("Running Adaptive ILS with parameter search - parallel...")
     # results = run_parameter_search(operators=operators, p_mins=p_mins, alphas=alphas, betas=betas, max_iterations=max_iterations)
     # print("Finished running Adaptive ILS with parameter search.")
-    
+    p_min = 0.0001
+    alpha = 0.4
+    beta = 0.2
+    best_cut, ils, elapsed = _run_adaptive_single(operators, p_min, alpha, beta, max_iterations)
     pass
