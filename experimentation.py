@@ -32,6 +32,48 @@ def experiment_adaptive_cpu_time(operators:list[int],max_cpu_time=10*60,p_min=0.
     print(f"Adaptive ILS - CPU Time: {max_cpu_time}. Best Cut: {best_cut}.")
     return best_cut, stats
 
+def experiment_ils_ada_staging():
+    operators = [10,20,30,35,40,45,50,55,60,65,70,75,80,85]
+    thresholds = [0.3, 0.5, 0.6, 0.7]
+    stage_cuts= [30,40,50,60]
+    p_min = 0.0001
+    alpha = 0.4
+    beta = 0.2
+    max_iterations = 1000
+    runs = 10
+    
+    combinations = []
+    for threshold in thresholds:
+        for stage_cut in stage_cuts:
+            combinations.append((threshold, stage_cut))    
+    
+    l = len(combinations)
+    for i in range(l):
+        threshold, stage_cut = combinations[i]
+        print(f"Running Adaptive ILS with staging, threshold: {threshold}, stage limit: {stage_cut}...")
+        results = []
+        
+        for _ in range(runs):
+            ils = AdaptiveILS("Graph500.txt", operators, p_min, alpha, beta, max_iterations)
+            ils.track_history = True
+            ils.use_stage_weight = True
+            ils.stage_threshold = threshold
+            ils.stage_cut_limit = stage_cut
+            
+            best_cut = ils.run_ils_max_iter(max_iterations)
+            stats = ils.get_run_statistics()
+            stats["stage_cut"] = stage_cut
+            stats["threshold"] = threshold
+            res = [best_cut, stats, ils.mutation_sizes, ils.best_cuts]
+            results.append(res)
+            print(f"Adaptive ILS - Staging: {threshold}. Limit: {stage_cut}. Best Cut: {best_cut}.")
+        # Save results
+        experiment_name = f"ILS-ADA-STAGING-threshold_{threshold}-stage_cut_{stage_cut}-runs_{runs}-best_cut_{round(best_cut, 2)}"
+        utils.save_as_pickle(results, experiment_name, "pckl/ils-ada-staging-search")
+        
+       
+    pass
+
 def run_adaptive_ils_param_search():
     operators = [30,35,40,45,50,55,60,65,70,75,80,85]
     #2000 iterations 86.26 seconds

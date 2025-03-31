@@ -59,23 +59,32 @@ class AdaptiveILS(ILS):
         self.beta = beta
         self.track_history = False
         self.use_stage_weight = False
+        self.stage_threshold = 0.6
+        self.stage_cut_limit = 50
         
     def _get_mutation_size(self):
         #Return the operator with the highest probability
         idx = np.argmax(self.mutation_operators[:, 1]) # The probability of the best operator is at column 1.
         return self.mutation_operators[idx][0] #return the mutation size of the best operator.
     
-    def stage_weight(self,mutation_size):        
-        if(self.max_cpu_time > 0):
-            stage = self.spent_cpu_time/self.max_cpu_time
-        else:
-            stage = self.n_iterations / self.max_iterations
+    def stage_weight(self,mutation_size):  
+        """
+        Experimental: try to favor higher mutation sizes in the early stage of the algorithm and lower mutation sizes in the late stage.
+        """      
+        stage = self._get_stage() #get the current stage of the algorithm
         # Normalize mutation size to [0,1]
         norm_size = (mutation_size - self.min_operator) / (self.max_operator - self.min_operator)
         
         # Early: favor large (1 - norm_size), Late: favor small (norm_size)
         weight = (1 - stage) * norm_size + stage * (1 - norm_size)      
         return weight
+    
+    def _get_stage(self):
+        if(self.max_cpu_time > 0):
+            stage = self.spent_cpu_time/self.max_cpu_time
+        else:
+            stage = self.n_iterations / self.max_iterations
+        return stage
 
     def _update_mutation_operator(self, mutation_size:int, old_cut:int, new_cut:int):
         r = old_cut - new_cut #actual reward
@@ -84,11 +93,11 @@ class AdaptiveILS(ILS):
         q = a[2] #current reward estimate: Qa(t)        
         #Update the reward estimate of current operator, Qas(t+1) = Qas(t) + alpha * (Ras(t) - Qas(t)) 
         #a[2] = q + self.alpha * (r - q) 
-        if self.use_stage_weight:
-            stage_weight = self.stage_weight(a[0])
-            a[2] = q + self.alpha * stage_weight * (r - q)
-        else:
-            a[2] = q + self.alpha * (r - q)
+        # if self.use_stage_weight:
+        #     stage_weight = self.stage_weight(a[0])
+        #     a[2] = q + self.alpha * stage_weight * (r - q)
+        # else:
+        a[2] = q + self.alpha * (r - q)
         
         #select the best operator. It is the one with the highest reward estimate.
         best_index = np.argmax(self.mutation_operators[:, 2])
@@ -105,6 +114,7 @@ class AdaptiveILS(ILS):
             #self.best_operator_history.append(np.array(self.mutation_operators[np.argmax(self.mutation_operators[:, 1])])) 
         
         #update the probabilities of the other operators
+        stage = self._get_stage()
         for i in range(self.K):
             if i == best_index:
                 continue # skip the best operator
@@ -113,7 +123,11 @@ class AdaptiveILS(ILS):
             # Update the probability of the current operator:
             # Pa(t + 1) = Pa(t) + β[Pmin − Pa(t)]
             # this will penalize the probability of other operators, to pursue the best operator.
-            a[1] = a[1] + self.beta * (self.p_min - a[1])
+            if self.use_stage_weight:
+                if stage < self.stage_threshold and a[0] < self.stage_cut_limit:
+                    a[1] = self.p_min
+            else:
+                a[1] = a[1] + self.beta * (self.p_min - a[1])
         
         if self.track_history:
             self.operator_history.append(np.array(self.mutation_operators))
@@ -170,9 +184,21 @@ def run_parameter_search(operators:list[int], p_mins:list[float], alphas:list[fl
     #Result format: (p_min, alpha, beta) : (best_cut, elapsed_time, mutation_size, reward_history, operator_history, best_operator_history, a_star_history)
     utils.save_as_pickle(results, f"adaptive_ils_parameter_search_iterations-{max_iterations}", folder="./pckl")
 
-
+def _load_results_from_folder(folder:str):
+    """Load the results from the folder.
+    Args:
+        folder (str): Folder where the results are saved.
+    """
+    import os
+    import pickle
+    results = []
+    for filename in os.listdir(folder):
+        if filename.endswith(".pkl"):
+            with open(os.path.join(folder, filename), "rb") as f:
+                results.append(pickle.load(f))
+    return results
 if __name__ == "__main__":
-    operators = [30,35,40,45,50,55,60,65,70,75,80,85]
+    operators = [10,20,30,35,40,45,50,55,60,65,70,75,80,85]
     # #2000 iterations 86.26 seconds
     max_iterations = 1000
     # p_mins = [0.04,0.01,0.001,0.0001]
@@ -184,5 +210,13 @@ if __name__ == "__main__":
     p_min = 0.0001
     alpha = 0.4
     beta = 0.2
-    best_cut, ils, elapsed = _run_adaptive_single(operators, p_min, alpha, beta, max_iterations)
+    
+    start = time.time()
+    ils = AdaptiveILS("Graph500.txt", operators, p_min, alpha, beta, max_iterations)
+    ils.track_history = True
+    ils.use_stage_weight = True
+    ils.stage_threshold = 0.6
+    ils.stage_cut_limit = 50
+    best_cut = ils.run_ils_max_iter(max_iterations=max_iterations)
+    end = time.time()
     pass
