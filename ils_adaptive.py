@@ -142,6 +142,42 @@ def _run_adaptive_single(operators, p_min, alpha, beta, max_iterations):
     
     return best_cut, ils, end - start
 
+def run_ils_adaptive(operators, p_min, alpha, beta, max_iterations, enable_staging=False, stage_threshold=0.6, stage_cut_limit=40) -> tuple[int, dict]:
+    """Runs adaptive ILS with the given parameters.
+
+    Args:
+        operators (_type_): Mutation sizes
+        p_min (_type_): Minimum probability for an operator
+        alpha (_type_): Reward estimate learning rate
+        beta (_type_): Probability learning rate
+        max_iterations (_type_): FM iterations
+        enable_staging (bool, optional): Enable staging, it suppresses low mutation sizes in the first phase of the process. Defaults to False.
+        stage_threshold (float, optional): The progress percentage until low mutation sizes are suppressed. Defaults to 0.6. 
+        stage_cut_limit (int, optional): The mutation size limit to suppress for staging. Defaults to 40.
+
+    Returns:
+        tuple[int, dict]: best cut and execution report.
+    """
+    ils = AdaptiveILS("Graph500.txt", operators, p_min, alpha, beta, max_iterations)
+    ils.track_history = True
+    if enable_staging:
+        ils.use_stage_weight = True
+        ils.stage_threshold = stage_threshold
+        ils.stage_cut_limit = stage_cut_limit
+        
+    best_cut = ils.run_ils_max_iter(max_iterations=max_iterations)
+    stats = ils.get_run_statistics()
+    stats["p_min"] = p_min
+    stats["alpha"] = alpha
+    stats["beta"] = beta
+    stats["enable_staging"] = enable_staging
+    stats["stage_cut"] = stage_cut_limit
+    stats["threshold"] = stage_threshold
+    stats["best_cut"] = best_cut
+    stats["mutation_sizes"] = ils.mutation_sizes
+    stats["best_cuts"] = ils.best_cuts
+    return best_cut, stats
+
 def run_parameter_search(operators:list[int], p_mins:list[float], alphas:list[float], betas:list[float], max_iterations:int=2000):
     """Performs a parameter search for the adaptive ILS algorithm.
     It runs the algorithm with different combinations of parameters and saves the results.
