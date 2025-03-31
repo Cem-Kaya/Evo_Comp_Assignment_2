@@ -16,9 +16,11 @@ class MLS:
         self.max_iterations = max_iterations
         self.random_seed = random_seed   
         self.best_cut_size = 1000000
+        self.cpu_time_sec = 0
         self.cut_sizes = []
         self.best_cut_sizes = []
-        self.results = []     
+        self.results = []
+        self.n_iterations = 0
         pass
 
     def __load_graph(self)->Graph:
@@ -33,6 +35,29 @@ class MLS:
             #Run FM       
             fm_impl = fm.FM(graph)
             cut_size = fm_impl.run_fm()
+            self.n_iterations += 1
+            #Store the results
+            self.cut_sizes.append(cut_size)
+            stats = fm_impl.get_run_statistics()        
+            self.results.append(stats)            
+            if cut_size < self.best_cut_size:
+                self.best_cut_size = cut_size
+                self.best_cut_sizes.append(cut_size)
+
+        return self.best_cut_size
+    
+    def run_single_for_cpu_time(self, cpu_time_sec:int)->tuple[dict, list[dict]]:
+        self.cpu_time_sec = cpu_time_sec
+        graph = self.__load_graph()    
+        
+        start_time = time.time()
+        while (time.time() - start_time) < self.cpu_time_sec:        
+            #Initialize a new random solution.
+            graph.set_random_solution(self.random_seed)    
+            #Run FM       
+            fm_impl = fm.FM(graph)
+            cut_size = fm_impl.run_fm()
+            self.n_iterations += 1
             #Store the results
             self.cut_sizes.append(cut_size)
             stats = fm_impl.get_run_statistics()        
@@ -58,31 +83,38 @@ class MLS:
             "avg_cut_size": statistics.mean(self.cut_sizes),
             "avg_best_cut_size": statistics.mean(self.best_cut_sizes),                
             "n_stays_in_local_optimum": "N/A",    
+            "n_iterations": self.n_iterations,
+            "cpu_time_sec": self.cpu_time_sec,
             "initial_cut_size_avg": statistics.mean(initial_cut_values),
             "initial_cut_size_best": min(initial_cut_values),
             "avg_time_per_fm": avg_per_fm
         }
 
 max_iter=10000
+cpu_time=0
 graph_filename="Graph500.txt"
 
-def single_run(i):
+def single_run(i, fixed_cpu_time=False):
     
         mls = MLS(
             graph_file=graph_filename, 
             max_iterations=max_iter,            
             random_seed=utils.generate_random_seed()
         )
+        mls.cpu_time_sec = cpu_time
         
         start = time.time()
-        best_cut = mls.run_single()   
+        if fixed_cpu_time:
+            best_cut = mls.run_single_for_cpu_time(cpu_time)
+        else:
+            best_cut = mls.run_single()
         elapsed = round(time.time() - start, 3)
         
         stats = mls.get_run_statistics()        
         print(f"MLS - {i}. Best Cut: {best_cut}. Elapsed: {elapsed}.")        
         return best_cut, stats
 
-def _process_results(results, best,max_iterations, runs, algorithm="MLS"):
+def _process_results(results, best,max_iterations, runs, algorithm="MLS", cpu_time_sec=-1):
     avg_best_cut_size = statistics.mean([r['best_cut_size'] for r in results])    
     avg_time_elapsed = statistics.mean([r['time_elapsed'] for r in results])
     
@@ -96,28 +128,39 @@ def _process_results(results, best,max_iterations, runs, algorithm="MLS"):
     results = list(results)
     results.append(summary)
     
-    experiment_name = f"{algorithm}-runs_{runs}-max_iterations_{max_iterations}-best_cut_{round(avg_best_cut_size, 2)}-time_{round(avg_time_elapsed, 3)}"
+    run_limit = f"max_iterations_{max_iterations}"
+    if cpu_time_sec > 0:
+        run_limit = f"cpu_time_{cpu_time_sec}"
+    
+    experiment_name = f"{algorithm}-runs_{runs}-{run_limit}-best_cut_{round(avg_best_cut_size, 2)}-time_{round(avg_time_elapsed, 3)}"
     utils.save_as_pickle(results, experiment_name)
     return best, avg_best_cut_size, results
        
-def run_mls(max_iterations=10000, runs:int=10, graph_file="Graph500.txt"):   
+def run_mls(max_iterations=10000, runs:int=10, graph_file="Graph500.txt", cpu_time_sec:int=-1)->tuple[int, float, list[dict]]:   
     global max_iter
     global graph_filename
+    global cpu_time
+    cpu_time = cpu_time_sec
     graph_filename = graph_file
     max_iter = max_iterations 
+    fixed_cpu_time = cpu_time_sec > 0
     
+    algorithm = "MLS"
+    if fixed_cpu_time:
+        algorithm = "MLS-FIXED_CPU"
+        
     results = []    
     best = 1000000
     
     for i in range(runs):
         # 2 Run ILS
-        best_cut, stats = single_run(i)
+        best_cut, stats = single_run(i, fixed_cpu_time)
         if best_cut < best:     
             best = best_cut
         # 3 Collect run statistics        
         results.append(stats)     
     
-    return _process_results(results, best, max_iterations, runs)
+    return _process_results(results, best, max_iterations, runs, algorithm, cpu_time_sec)
 
 # LLM Prompt: Introduce a new run_mls_parallel function that runs the for-loop in run_mls function in parallel.
 def run_mls_parallel(max_iterations=10000, runs:int=10, graph_file="Graph500.txt"):   
