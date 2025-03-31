@@ -67,18 +67,6 @@ class AdaptiveILS(ILS):
         idx = np.argmax(self.mutation_operators[:, 1]) # The probability of the best operator is at column 1.
         return self.mutation_operators[idx][0] #return the mutation size of the best operator.
     
-    def stage_weight(self,mutation_size):  
-        """
-        Experimental: try to favor higher mutation sizes in the early stage of the algorithm and lower mutation sizes in the late stage.
-        """      
-        stage = self._get_stage() #get the current stage of the algorithm
-        # Normalize mutation size to [0,1]
-        norm_size = (mutation_size - self.min_operator) / (self.max_operator - self.min_operator)
-        
-        # Early: favor large (1 - norm_size), Late: favor small (norm_size)
-        weight = (1 - stage) * norm_size + stage * (1 - norm_size)      
-        return weight
-    
     def _get_stage(self):
         if(self.max_cpu_time > 0):
             stage = self.spent_cpu_time/self.max_cpu_time

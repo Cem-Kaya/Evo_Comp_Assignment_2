@@ -140,9 +140,9 @@ def generate_mutation_size_trend_chart(phase_means:list):
     #plt.plot(x, phase_averages, 'o-', linewidth=3, markersize=10, color='red', label='Average')
 
     # Customize plot
-    plt.xlabel('Phase', fontsize=12)
-    plt.ylabel('Mean Value', fontsize=12)
-    plt.title('Phase Means across 160 Sequences', fontsize=14)
+    plt.xlabel('Stage', fontsize=12)
+    plt.ylabel('Mutation Size (Mean)', fontsize=12)
+    plt.title(f"Stage Means across {len(phase_means)} Trials", fontsize=14)
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.xticks(x)
     plt.legend()
