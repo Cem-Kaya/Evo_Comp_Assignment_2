@@ -75,6 +75,45 @@ class AdaptiveILS(ILS):
         return stage
 
     def _update_mutation_operator(self, mutation_size:int, old_cut:int, new_cut:int):
+        """Probability matching implementation.
+
+        Args:
+            mutation_size (int): _description_
+            old_cut (int): _description_
+            new_cut (int): _description_
+        """
+        r = old_cut - new_cut #actual reward
+        op_index = self.operator_indices[mutation_size] #index of the operator in the mutation_operators array
+        a = self.mutation_operators[op_index] #current operator
+        q = a[2] #current reward estimate: Qa(t)
+        #Update the reward estimate of current operator, Qas(t+1) = Qas(t) + alpha * (Ras(t) - Qas(t)) 
+        a[2] = q + self.alpha * (r - q)
+        
+        #stage = self._get_stage()        
+        sum_rewards = np.sum(self.mutation_operators[:, 2])
+        
+        for i in range(self.K):            
+            a = self.mutation_operators[i]            
+            a[1] = self.p_min + (1 - self.K*self.p_min) * (a[2] / sum_rewards)  
+            if a[1] < self.p_min:
+                a[1] = self.p_min         
+                
+            if a[1] > self.p_max:
+                a[1] = self.p_max  
+            
+            # if self.use_stage_weight:
+            #     if stage < self.stage_threshold and a[0] < self.stage_cut_limit:
+            #         a[1] = self.p_min
+            # else:
+            #     a[1] = self.p_min + (1 - self.K*self.p_min) * (a[2] - q) / sum_rewards
+        
+        if self.track_history:
+            self.operator_history.append(np.array(self.mutation_operators))
+        pass
+        
+    
+    #OBSOLETE
+    def _update_mutation_operator_adap(self, mutation_size:int, old_cut:int, new_cut:int):
         r = old_cut - new_cut #actual reward
         op_index = self.operator_indices[mutation_size] #index of the operator in the mutation_operators array
         a = self.mutation_operators[op_index] #current operator
@@ -130,6 +169,20 @@ def _run_adaptive_single(operators, p_min, alpha, beta, max_iterations):
     
     return best_cut, ils, end - start
 
+def _run_adaptive_single_multiple(operators, p_min, alpha, beta, max_iterations, runs=10):    
+    start = time.time()
+    
+    bests = []
+    for i in range(runs):
+        ils = AdaptiveILS("Graph500.txt", operators, p_min, alpha, beta, max_iterations)
+        ils.track_history = False
+        best_cut = ils.run_ils_max_iter(max_iterations=max_iterations)
+        bests.append(best_cut)
+    
+    end = time.time()        
+    
+    return np.mean(best_cut), ils, end - start
+
 def run_ils_adaptive(operators, p_min, alpha, beta, max_iterations, enable_staging=False, stage_threshold=0.6, stage_cut_limit=40) -> tuple[int, dict]:
     """Runs adaptive ILS with the given parameters.
 
@@ -181,8 +234,9 @@ def run_parameter_search(operators:list[int], p_mins:list[float], alphas:list[fl
     combinations = []
     for p_min in p_mins:
         for alpha in alphas:
-            for beta in betas:
-                combinations.append((p_min,alpha,beta))
+            #for beta in betas:
+                #combinations.append((p_min,alpha,beta))
+                combinations.append((p_min,alpha))
     
     # Parallel run of ILS
     from concurrent.futures import ProcessPoolExecutor
@@ -190,14 +244,14 @@ def run_parameter_search(operators:list[int], p_mins:list[float], alphas:list[fl
     #LLM Prompt: run the ILS with the parameters in parallel for combinations.
     with ProcessPoolExecutor() as executor:
         futures = []
-        for p_min, alpha, beta in combinations:
-            futures.append(executor.submit(_run_adaptive_single, operators, p_min, alpha, beta, max_iterations))
+        for p_min, alpha in combinations:
+            futures.append(executor.submit(_run_adaptive_single_multiple, operators, p_min, alpha, 0, max_iterations, 10))
         results_list = [future.result() for future in futures]
     
     results = []
-    for (p_min, alpha, beta), (best_cut, ils, elapsed_time) in zip(combinations, results_list):
+    for (p_min, alpha), (best_cut, ils, elapsed_time) in zip(combinations, results_list):
         best_history = [ils.mutation_sizes , ils.best_cuts]
-        res = {"p_min": p_min, "alpha": alpha, "beta": beta, "best_cut": best_cut, "elapsed_time": elapsed_time, "best_operator": ils.mutation_sizes[-1] ,"sizes_cuts":best_history ,"reward_history": ils.reward_history,  "operator_history": ils.operator_history}
+        res = {"p_min": p_min, "alpha": alpha, "best_cut": best_cut, "elapsed_time": elapsed_time, "best_operator": ils.mutation_sizes[-1] ,"sizes_cuts":best_history ,"reward_history": ils.reward_history,  "operator_history": ils.operator_history}
         results.append(res)
         
     # for p_min, alpha, beta in combinations:
@@ -224,7 +278,7 @@ def _load_results_from_folder(folder:str):
 if __name__ == "__main__":
     operators = [10,20,30,35,40,45,50,55,60,65,70,75,80,85]
     # #2000 iterations 86.26 seconds
-    max_iterations = 1000
+    max_iterations = 2000
     # p_mins = [0.04,0.01,0.001,0.0001]
     # alphas = [0.1,0.2,0.4,0.6]
     # betas = [0.1,0.2,0.3,0.5]
